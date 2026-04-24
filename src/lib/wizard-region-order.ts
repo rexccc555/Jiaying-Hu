@@ -59,9 +59,15 @@ function orderByIdList(regions: Region[], order: readonly string[]): Region[] {
   return out;
 }
 
-export function orderRegionsForWizardIntent(regions: Region[], intent: WizardIntent): Region[] {
+export function orderRegionsForWizardIntent(
+  regions: Region[],
+  intent: WizardIntent,
+): Region[] {
   if (intent === "local") {
     return orderByIdList(regions, [...LOCAL_AUCKLAND_NEAR, ...LOCAL_NORTH_OTHER, ...LOCAL_SOUTH]);
+  }
+  if (intent === "visitor") {
+    return orderByIdList(regions, [...VISITOR_NORTH, ...VISITOR_SOUTH]);
   }
   return orderByIdList(regions, [...VISITOR_NORTH, ...VISITOR_SOUTH]);
 }

@@ -17,6 +17,13 @@ import { poiGoogleMapsUrl } from "@/lib/google-maps-urls";
 import { resolveBlockPrimaryPlace } from "@/lib/itinerary-block-map";
 import { TNZ_GETTING_AROUND_URL } from "@/lib/nz-transit-links";
 import { usesAucklandTransit } from "@/lib/transit-regions";
+import { addCalendarDaysIso } from "@/lib/dates-auckland";
+
+function isoToMonthDayParen(iso: string): string | null {
+  const p = iso.split("-");
+  if (p.length < 3) return null;
+  return `${p[1]}-${p[2]}`;
+}
 
 const STORAGE_KEY = "nzItineraryResult";
 const WIZARD_PAYLOAD_KEY = "nzWizardLastPayload";
@@ -36,6 +43,14 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
   const [adjustBusy, setAdjustBusy] = useState(false);
   const [adjustErr, setAdjustErr] = useState<string | null>(null);
   const [hasWizardPayload, setHasWizardPayload] = useState(false);
+  const [hashWantsRegister, setHashWantsRegister] = useState(false);
+
+  useEffect(() => {
+    const syncHash = () => setHashWantsRegister(window.location.hash === "#register-save");
+    syncHash();
+    window.addEventListener("hashchange", syncHash);
+    return () => window.removeEventListener("hashchange", syncHash);
+  }, []);
 
   useEffect(() => {
     const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -106,10 +121,38 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
     }
   }, [adjustNotes, locale, t]);
 
+  const scrollToRegisterSave = useCallback(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#register-save") return;
+    window.requestAnimationFrame(() => {
+      document.getElementById("register-save")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!data) return;
+    if (typeof window === "undefined" || window.location.hash !== "#register-save") return;
+    const id = window.setTimeout(() => {
+      scrollToRegisterSave();
+    }, 100);
+    return () => window.clearTimeout(id);
+  }, [data, scrollToRegisterSave]);
+
+  useEffect(() => {
+    if (!data) return;
+    const onHash = () => {
+      if (window.location.hash === "#register-save") scrollToRegisterSave();
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, [data, scrollToRegisterSave]);
+
   if (!data) {
     return (
       <main className="min-h-[50vh] px-4 py-20 text-center">
         <p className="text-lg text-slate-700">{t.result.noData}</p>
+        {hashWantsRegister ? (
+          <p className="mx-auto mt-4 max-w-md text-sm leading-relaxed text-slate-600">{t.result.needItineraryToRegister}</p>
+        ) : null}
         <Link
           href={`/${locale}/wizard`}
           className="mt-6 inline-flex rounded-xl bg-sky-600 px-5 py-2.5 font-semibold text-white hover:bg-sky-700"
@@ -123,11 +166,21 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
 
   const copyText = () => {
     const lines: string[] = [];
-    for (const d of data.itinerary.days) {
+    for (let idx = 0; idx < data.itinerary.days.length; idx++) {
+      const d = data.itinerary.days[idx]!;
+      const dayNum = idx + 1;
+      const dateParen =
+        data.tripDates?.startDate != null
+          ? isoToMonthDayParen(addCalendarDaysIso(data.tripDates.startDate, idx))
+          : null;
       const head =
         locale === "zh"
-          ? `${t.result.dayPrefix} ${d.day} ${t.result.daySuffix} · ${d.theme}`
-          : `${t.result.dayPrefix} ${d.day} · ${d.theme}`;
+          ? dateParen
+            ? `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${d.theme}（${dateParen}）`
+            : `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${d.theme}`
+          : dateParen
+            ? `${t.result.dayPrefix} ${dayNum} · ${d.theme} (${dateParen})`
+            : `${t.result.dayPrefix} ${dayNum} · ${d.theme}`;
       lines.push(head);
       for (const b of d.blocks) {
         lines.push(
@@ -161,8 +214,11 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
           }
         }
       }
-      const g = data.dayMapLinks?.find((x) => x.day === d.day);
-      if (g) lines.push(`${t.result.googleDayNav.replace("{day}", String(d.day))}: ${g.url}`);
+      const g =
+        data.dayMapLinks && data.dayMapLinks.length === data.itinerary.days.length
+          ? data.dayMapLinks[idx]
+          : data.dayMapLinks?.find((x) => x.day === d.day);
+      if (g) lines.push(`${t.result.googleDayNav.replace("{day}", String(dayNum))}: ${g.url}`);
       lines.push("");
     }
     if (data.meta?.mobility === "public_transit") {
@@ -199,7 +255,7 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
   };
 
   const metaLine = data.meta.usedOpenAI
-    ? t.result.metaOpenAI.replace("{model}", data.meta.model ?? "OpenAI")
+    ? t.result.metaOpenAI
     : data.meta.aiUnavailableReason === "no_api_key"
       ? t.result.metaLocalNoKey
       : data.meta.aiUnavailableReason === "upstream_failed"
@@ -325,20 +381,32 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
         ) : null}
 
         <div className="mt-10 space-y-8">
-          {data.itinerary.days.map((day) => {
-            const mapLink = data.dayMapLinks?.find((l) => l.day === day.day);
+          {data.itinerary.days.map((day, idx) => {
+            const dayNum = idx + 1;
+            const mapLink =
+              data.dayMapLinks && data.dayMapLinks.length === data.itinerary.days.length
+                ? data.dayMapLinks[idx]
+                : data.dayMapLinks?.find((l) => l.day === day.day);
             const navMode =
               data.meta?.mobility === "car"
                 ? t.result.googleModeDrive
                 : t.result.googleModeTransit;
+            const dateParen =
+              data.tripDates?.startDate != null
+                ? isoToMonthDayParen(addCalendarDaysIso(data.tripDates.startDate, idx))
+                : null;
+            const dayHeading =
+              locale === "zh"
+                ? dateParen
+                  ? `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${day.theme}（${dateParen}）`
+                  : `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${day.theme}`
+                : dateParen
+                  ? `${t.result.dayPrefix} ${dayNum} · ${day.theme} (${dateParen})`
+                  : `${t.result.dayPrefix} ${dayNum} · ${day.theme}`;
             return (
-            <section key={day.day} className="glass rounded-3xl p-6 sm:p-8">
+            <section key={`day-${dayNum}-${idx}`} className="glass rounded-3xl p-6 sm:p-8">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                <h2 className="text-xl font-bold text-slate-900">
-                  {locale === "zh"
-                    ? `${t.result.dayPrefix} ${day.day} ${t.result.daySuffix} · ${day.theme}`
-                    : `${t.result.dayPrefix} ${day.day} · ${day.theme}`}
-                </h2>
+                <h2 className="text-xl font-bold text-slate-900">{dayHeading}</h2>
                 {mapLink ? (
                   <a
                     href={mapLink.url}
@@ -347,7 +415,7 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
                     className="inline-flex shrink-0 items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-sky-600 to-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md transition hover:brightness-110"
                   >
                     <span className="hidden sm:inline">
-                      {t.result.googleDayNav.replace("{day}", String(day.day))}
+                      {t.result.googleDayNav.replace("{day}", String(dayNum))}
                     </span>
                     <span className="sm:hidden">Google Maps</span>
                     <span className="rounded-full bg-white/20 px-2 py-0.5 text-xs font-medium">
@@ -553,6 +621,7 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
             >
               {t.result.openMeteoLink}
             </a>
+            <p className="mt-2 text-xs leading-relaxed text-slate-500">{t.result.openMeteoCredit}</p>
           </div>
 
           <div className="glass rounded-3xl p-6">
@@ -568,6 +637,7 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
             >
               NZTA Journeys →
             </a>
+            <p className="mt-2 text-xs leading-relaxed text-slate-500">{t.result.nztaCredit}</p>
           </div>
 
           <div className="glass rounded-3xl p-6">

@@ -1,7 +1,8 @@
 # Next.js on Netlify（官方插件负责 SSR / API 路由打包）
 # 不要在 Netlify 后台把「Publish directory」设成 .next；应留空，由本插件接管产物。
 [build]
-  command = "npm run build"
+  # 构建阶段执行迁移（需在 Netlify 环境变量中配置 DATABASE_URL，指向 PostgreSQL）
+  command = "npx prisma migrate deploy && npm run build"
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"

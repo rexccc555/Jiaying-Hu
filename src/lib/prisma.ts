@@ -2,10 +2,12 @@ import { PrismaClient } from "@prisma/client";
 
 const globalForPrisma = globalThis as unknown as { prisma: PrismaClient | undefined };
 
-export const prisma =
-  globalForPrisma.prisma ??
-  new PrismaClient({
+function makeClient() {
+  return new PrismaClient({
     log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
   });
+}
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+/** Netlify / Serverless 下复用实例，减轻连接数压力 */
+export const prisma = globalForPrisma.prisma ?? makeClient();
+globalForPrisma.prisma = prisma;

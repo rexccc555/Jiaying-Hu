@@ -187,6 +187,50 @@ function normalizeOpenAiBaseUrl(u: string): string {
   return u.trim().replace(/\/+$/, "");
 }
 
+/** 去掉复制粘贴时自带的引号 */
+function stripSurroundingQuotes(s: string): string {
+  let t = s.trim();
+  if (
+    (t.startsWith('"') && t.endsWith('"')) ||
+    (t.startsWith("'") && t.endsWith("'")) ||
+    (t.startsWith("`") && t.endsWith("`"))
+  ) {
+    t = t.slice(1, -1).trim();
+  }
+  return t;
+}
+
+/**
+ * 解析 OPENAI_BASE_URL；失败时返回明确错误，避免 SDK 只报 “Invalid URL”。
+ * 常见修复：补全 `https://`、末尾 `/v1`、去掉引号与首尾空格。
+ */
+function resolveOpenAiBaseUrl(raw: string | undefined):
+  | { ok: true; baseURL?: string }
+  | { ok: false; detail: string } {
+  if (!raw?.trim()) return { ok: true, baseURL: undefined };
+  let u = stripSurroundingQuotes(raw);
+  if (/^(undefined|null|none|n\/a)$/i.test(u)) {
+    return { ok: false, detail: "OPENAI_BASE_URL 像占位符或未填写，请改为完整 URL（如 https://网关域名/v1）" };
+  }
+  u = normalizeOpenAiBaseUrl(u);
+  if (!/^https?:\/\//i.test(u)) u = `https://${u}`;
+  try {
+    const parsed = new URL(u);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+      return { ok: false, detail: "OPENAI_BASE_URL 须为 http(s) 协议" };
+    }
+    const path = parsed.pathname === "/" ? "" : parsed.pathname.replace(/\/+$/, "");
+    const baseURL = `${parsed.origin}${path}`;
+    return { ok: true, baseURL: baseURL || parsed.origin };
+  } catch {
+    return {
+      ok: false,
+      detail:
+        "无法把 OPENAI_BASE_URL 解析为合法 URL。示例：https://你的网关域名/v1（不要多空格、不要用中文引号）",
+    };
+  }
+}
+
 function errString(e: unknown): string {
   if (e && typeof e === "object") {
     const o = e as Record<string, unknown>;
@@ -199,6 +243,45 @@ function errString(e: unknown): string {
   }
   if (e instanceof Error) return e.message;
   return String(e);
+}
+
+function httpStatusFromError(e: unknown): number | undefined {
+  if (e && typeof e === "object" && "status" in e) {
+    const s = (e as { status: unknown }).status;
+    return typeof s === "number" && Number.isFinite(s) ? s : undefined;
+  }
+  return undefined;
+}
+
+/** 多个模型 id：`gpt-5.4,gpt-4o-mini`；未配置时默认先试网关常见 5.4，再兜底 4o-mini */
+function parseModelCandidates(raw: string | undefined): string[] {
+  const fallback = "gpt-5.4,gpt-4o-mini";
+  const s = (raw ?? "").trim() || fallback;
+  const parts = s
+    .split(/[,|]/)
+    .map((x) => x.trim())
+    .filter(Boolean);
+  return parts.length ? parts : fallback.split(",").map((x) => x.trim());
+}
+
+/** 当前模型不可用（换 id）；401 不换 */
+function shouldTryNextModelForSdkError(e: unknown): boolean {
+  const st = httpStatusFromError(e);
+  if (st === 401) return false;
+  if (st === 403 || st === 404) return true;
+  const t = errString(e);
+  const lower = t.toLowerCase();
+  if (t.includes("无权") || t.includes("无权限")) return true;
+  if (
+    lower.includes("model_not_found") ||
+    lower.includes("does not exist") ||
+    lower.includes("invalid model") ||
+    lower.includes("unknown model") ||
+    lower.includes("unsupported model")
+  ) {
+    return true;
+  }
+  return false;
 }
 
 /** 兼容：纯 JSON、Markdown 代码块、或正文里第一个 `{` 起的对象 */
@@ -249,20 +332,32 @@ export async function generateWithOpenAI(params: {
   const key = process.env.OPENAI_API_KEY;
   if (!key?.trim()) return { ok: false, stage: "no_api_key" };
 
-  const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
-  const baseURLRaw = process.env.OPENAI_BASE_URL?.trim();
-  const baseURL = baseURLRaw ? normalizeOpenAiBaseUrl(baseURLRaw) : undefined;
+  const modelCandidates = parseModelCandidates(process.env.OPENAI_MODEL);
+  const resolvedBase = resolveOpenAiBaseUrl(process.env.OPENAI_BASE_URL);
+  if (!resolvedBase.ok) {
+    return { ok: false, stage: "invalid_openai_base_url", detail: resolvedBase.detail };
+  }
+  const baseURL = resolvedBase.baseURL;
 
   const timeoutMs = Number(process.env.OPENAI_TIMEOUT_MS);
-  const client = new OpenAI({
-    apiKey: key,
-    ...(baseURL ? { baseURL } : {}),
-    timeout: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 120_000,
-    maxRetries: 1,
-  });
+  let client: OpenAI;
+  try {
+    client = new OpenAI({
+      apiKey: key,
+      ...(baseURL ? { baseURL } : {}),
+      timeout: Number.isFinite(timeoutMs) && timeoutMs > 0 ? timeoutMs : 120_000,
+      maxRetries: 1,
+    });
+  } catch (e) {
+    const hint = errString(e);
+    return {
+      ok: false,
+      stage: "invalid_openai_base_url",
+      detail: `OpenAI 客户端初始化失败（${hint}）。请检查 OPENAI_BASE_URL 是否为完整 https URL，且含路径 /v1（若网关要求）`,
+    };
+  }
 
   const { system, user } = buildPrompt(params);
-  const temperature = effectiveTemperature(model, modelCreativityTemperature(params.input));
 
   const wantJsonObject = process.env.OPENAI_RESPONSE_FORMAT_JSON !== "0";
 
@@ -272,49 +367,75 @@ export async function generateWithOpenAI(params: {
       ? { max_tokens: Number(maxTokRaw) }
       : {};
 
-  const runCreate = async (withJsonObject: boolean) =>
-    client.chat.completions.create({
-      model,
-      temperature,
-      ...tokenOpts,
-      ...(withJsonObject ? { response_format: { type: "json_object" as const } } : {}),
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user },
-      ],
-    });
+  const modelAttempts: string[] = [];
 
-  let completion: Awaited<ReturnType<typeof runCreate>>;
-  try {
-    completion = await runCreate(wantJsonObject);
-  } catch (err) {
-    const d1 = errString(err);
-    console.error(`[generateWithOpenAI] create failed (json_object=${wantJsonObject}):`, d1);
-    if (wantJsonObject) {
-      try {
-        completion = await runCreate(false);
-      } catch (err2) {
-        console.error("[generateWithOpenAI] retry without json_object:", errString(err2));
+  for (const model of modelCandidates) {
+    const temperature = effectiveTemperature(model, modelCreativityTemperature(params.input));
+
+    const runCreate = async (withJsonObject: boolean) =>
+      client.chat.completions.create({
+        model,
+        temperature,
+        ...tokenOpts,
+        ...(withJsonObject ? { response_format: { type: "json_object" as const } } : {}),
+        messages: [
+          { role: "system", content: system },
+          { role: "user", content: user },
+        ],
+      });
+
+    let completion: Awaited<ReturnType<typeof runCreate>>;
+    try {
+      completion = await runCreate(wantJsonObject);
+    } catch (err) {
+      const d1 = errString(err);
+      console.error(
+        `[generateWithOpenAI] model=${model} create failed (json_object=${wantJsonObject}):`,
+        d1,
+      );
+      if (shouldTryNextModelForSdkError(err)) {
+        modelAttempts.push(`${model}: ${d1.slice(0, 200)}`);
+        continue;
+      }
+      if (wantJsonObject) {
+        try {
+          completion = await runCreate(false);
+        } catch (err2) {
+          console.error("[generateWithOpenAI] retry without json_object:", errString(err2));
+          if (shouldTryNextModelForSdkError(err2)) {
+            modelAttempts.push(`${model} (no json_object): ${errString(err2).slice(0, 200)}`);
+            continue;
+          }
+          return { ok: false, stage: "sdk_error", detail: d1.slice(0, 500) };
+        }
+      } else {
         return { ok: false, stage: "sdk_error", detail: d1.slice(0, 500) };
       }
-    } else {
-      return { ok: false, stage: "sdk_error", detail: d1.slice(0, 500) };
     }
+
+    const text = completion.choices[0]?.message?.content;
+    if (!text?.trim()) {
+      const fr = completion.choices?.[0]?.finish_reason;
+      return { ok: false, stage: "empty_content", detail: fr ? String(fr) : undefined };
+    }
+
+    const parsed = tryParseItineraryJson(text);
+    if (!parsed) {
+      console.error("[generateWithOpenAI] JSON parse failed, preview:", text.slice(0, 800));
+      return { ok: false, stage: "json_parse" };
+    }
+    if (!looksLikeItinerary(parsed)) {
+      return { ok: false, stage: "invalid_shape" };
+    }
+    return { ok: true, payload: parsed, model };
   }
 
-  const text = completion.choices[0]?.message?.content;
-  if (!text?.trim()) {
-    const fr = completion.choices?.[0]?.finish_reason;
-    return { ok: false, stage: "empty_content", detail: fr ? String(fr) : undefined };
-  }
-
-  const parsed = tryParseItineraryJson(text);
-  if (!parsed) {
-    console.error("[generateWithOpenAI] JSON parse failed, preview:", text.slice(0, 800));
-    return { ok: false, stage: "json_parse" };
-  }
-  if (!looksLikeItinerary(parsed)) {
-    return { ok: false, stage: "invalid_shape" };
-  }
-  return { ok: true, payload: parsed, model };
+  const tail = modelAttempts.length
+    ? ` 已试: ${modelAttempts.join(" → ")}`.slice(0, 500)
+    : "";
+  return {
+    ok: false,
+    stage: "sdk_error",
+    detail: `所列模型均不可用（${modelCandidates.join(", ")}）${tail}`.slice(0, 600),
+  };
 }

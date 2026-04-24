@@ -4,8 +4,21 @@ import type { LegalDoc } from "@/i18n/legal";
 import { messages } from "@/i18n/messages";
 import { SiteFooter } from "@/components/SiteFooter";
 
-export function LegalArticle({ locale, doc }: { locale: AppLocale; doc: LegalDoc }) {
+export function LegalArticle({
+  locale,
+  doc,
+  backHref,
+  backLabel,
+}: {
+  locale: AppLocale;
+  doc: LegalDoc;
+  /** 若提供则底部返回链到此路径（例如从结果页注册区打开条款时） */
+  backHref?: string;
+  backLabel?: string;
+}) {
   const t = messages[locale];
+  const href = backHref ?? `/${locale}`;
+  const label = backLabel ?? t.footer.home;
 
   return (
     <main className="min-h-[60vh] pb-6">
@@ -30,8 +43,8 @@ export function LegalArticle({ locale, doc }: { locale: AppLocale; doc: LegalDoc
         </div>
 
         <p className="mt-12 text-sm text-slate-500">
-          <Link href={`/${locale}`} className="font-semibold text-sky-700 hover:underline">
-            ← {t.footer.home}
+          <Link href={href} className="font-semibold text-sky-700 hover:underline">
+            ← {label}
           </Link>
         </p>
       </div>

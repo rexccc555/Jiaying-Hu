@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import type { GenerateResponse } from "@/lib/types";
 import type { AppLocale } from "@/i18n/config";
@@ -10,12 +11,18 @@ type Props = {
   itinerary: GenerateResponse;
 };
 
+const legalReturnQuery = (locale: AppLocale) =>
+  `?returnTo=${encodeURIComponent(`/${locale}/result#register-save`)}`;
+
 export function RegisterSaveCard({ locale, itinerary }: Props) {
   const t = messages[locale].result.register;
+  const legalQ = legalReturnQuery(locale);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [acceptTerms, setAcceptTerms] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -23,6 +30,10 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!acceptTerms) {
+      setError(t.errTerms);
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/register-save", {
@@ -35,11 +46,14 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
           phone: phone.trim() || undefined,
           locale,
           itinerary,
+          acceptTerms: true,
+          marketingOptIn,
         }),
       });
-      const data = (await res.json()) as { ok?: boolean; error?: string; message?: string };
+      const data = (await res.json()) as { ok?: boolean; error?: string; message?: string; hint?: string };
       if (!res.ok || !data.ok) {
-        setError(data.error ?? t.errGeneric);
+        const base = data.error ?? t.errGeneric;
+        setError(data.hint ? `${base}\n（开发提示）${data.hint}` : base);
         return;
       }
       setDone(true);
@@ -52,7 +66,10 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
 
   if (done) {
     return (
-      <section className="glass mt-12 rounded-3xl border border-emerald-200/80 bg-emerald-50/70 p-6">
+      <section
+        id="register-save"
+        className="glass mt-12 scroll-mt-28 rounded-3xl border border-emerald-200/80 bg-emerald-50/70 p-6"
+      >
         <h2 className="text-lg font-bold text-emerald-950">{t.title}</h2>
         <p className="mt-2 text-sm font-medium text-emerald-900">{t.success}</p>
       </section>
@@ -60,7 +77,10 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
   }
 
   return (
-    <section className="glass mt-12 rounded-3xl border border-slate-200/90 p-6 sm:p-8">
+    <section
+      id="register-save"
+      className="glass mt-12 scroll-mt-28 rounded-3xl border border-slate-200/90 p-6 sm:p-8"
+    >
       <h2 className="text-xl font-bold text-slate-900">{t.title}</h2>
       <p className="mt-2 text-sm text-slate-600">{t.subtitle}</p>
       <p className="mt-2 text-xs text-slate-500">{t.privacy}</p>
@@ -126,6 +146,48 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
+        </div>
+
+        <div className="flex gap-3 pt-1">
+          <input
+            id="reg-terms"
+            name="acceptTerms"
+            type="checkbox"
+            checked={acceptTerms}
+            onChange={(e) => setAcceptTerms(e.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500/40"
+          />
+          <label htmlFor="reg-terms" className="text-sm leading-relaxed text-slate-800">
+            {t.termsCheckbox}{" "}
+            <Link
+              href={`/${locale}/terms${legalQ}`}
+              className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+            >
+              {t.termsLink}
+            </Link>{" "}
+            {t.termsAnd}{" "}
+            <Link
+              href={`/${locale}/privacy${legalQ}`}
+              className="font-semibold text-sky-700 underline-offset-2 hover:underline"
+            >
+              {t.privacyLinkLabel}
+            </Link>
+            <span className="text-slate-500"> {t.termsRequired}</span>
+          </label>
+        </div>
+
+        <div className="flex gap-3">
+          <input
+            id="reg-marketing"
+            name="marketingOptIn"
+            type="checkbox"
+            checked={marketingOptIn}
+            onChange={(e) => setMarketingOptIn(e.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500/40"
+          />
+          <label htmlFor="reg-marketing" className="text-sm leading-relaxed text-slate-800">
+            {t.marketingCheckbox}
+          </label>
         </div>
 
         {error ? (

@@ -12,6 +12,9 @@ const bodySchema = z.object({
   name: z.string().min(1).max(80).trim(),
   locale: z.enum(["zh", "en"]),
   itinerary: z.record(z.unknown()),
+  /** 必须为 true：用户已勾选同意条款 */
+  acceptTerms: z.boolean(),
+  marketingOptIn: z.boolean().optional().default(false),
 });
 
 function reg(locale: AppLocale) {
@@ -35,7 +38,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: reg(locGuess).errValidation }, { status: 400 });
   }
 
-  const { email, password, name, locale, itinerary } = parsed.data;
+  const { email, password, name, locale, itinerary, acceptTerms, marketingOptIn } = parsed.data;
+  if (!acceptTerms) {
+    return NextResponse.json({ ok: false, error: reg(locale).errTerms }, { status: 400 });
+  }
   const phoneRaw = (raw as { phone?: unknown }).phone;
   const phone =
     typeof phoneRaw === "string" && phoneRaw.trim().length > 0
@@ -55,7 +61,13 @@ export async function POST(req: Request) {
   try {
     const result = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
-        data: { email, passwordHash, name, phone: phone ?? null },
+        data: {
+          email,
+          passwordHash,
+          name,
+          phone: phone ?? null,
+          marketingOptIn,
+        },
       });
       const trip = await tx.savedTrip.create({
         data: {
@@ -81,7 +93,17 @@ export async function POST(req: Request) {
     if (code === "P2002") {
       return NextResponse.json({ ok: false, error: reg(locale).errDuplicate }, { status: 409 });
     }
-    console.error(e);
-    return NextResponse.json({ ok: false, error: reg(locale).errGeneric }, { status: 500 });
+    console.error("[register-save]", e);
+    const devMsg =
+      e instanceof Error
+        ? e.message
+        : typeof e === "object" && e !== null && "message" in e && typeof (e as { message: unknown }).message === "string"
+          ? (e as { message: string }).message
+          : String(e);
+    const devHint = process.env.NODE_ENV === "development" ? devMsg.slice(0, 400) : undefined;
+    return NextResponse.json(
+      { ok: false, error: reg(locale).errGeneric, ...(devHint ? { hint: devHint } : {}) },
+      { status: 500 },
+    );
   }
 }

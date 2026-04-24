@@ -51,6 +51,7 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
     [searchParams],
   );
 
+  /** unset 时仅占位长度；未选类型前不会进入主步骤条 */
   const stepTitles = intent === "local" ? t.wizard.stepsLocal : t.wizard.stepsVisitor;
 
   useEffect(() => {
@@ -143,7 +144,8 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
       setDuration(durQ);
     } else {
       const int = parseWizardIntent(searchParams.get("intent"));
-      setDuration(int === "local" ? "day" : "2d1n");
+      if (int === "local") setDuration("day");
+      else if (int === "visitor") setDuration("2d1n");
     }
   }, [searchParams]);
 
@@ -336,6 +338,54 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
       default:
         return "";
     }
+  }
+
+  if (intent === "unset") {
+    const applyIntent = (next: "local" | "visitor") => {
+      const q = new URLSearchParams(searchParams.toString());
+      q.set("intent", next);
+      const s = q.toString();
+      router.replace(`/${locale}/wizard?${s}`, { scroll: false });
+    };
+
+    return (
+      <main className="min-h-screen pb-24">
+        <div className="mx-auto max-w-lg px-4 pt-8">
+          <div className="glass mb-6 rounded-2xl px-4 py-3">
+            <Link href={`/${locale}`} className="text-sm font-semibold text-sky-700 hover:underline">
+              ← {t.wizard.backHome}
+            </Link>
+          </div>
+          <h1 className="text-2xl font-bold tracking-tight text-slate-900 sm:text-3xl">{t.wizard.intentPickTitle}</h1>
+          <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.wizard.intentPickSub}</p>
+          <div className="mt-8 grid gap-4">
+            <button
+              type="button"
+              onClick={() => applyIntent("local")}
+              className="group rounded-3xl border border-white/70 bg-white/90 p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-lg"
+            >
+              <h2 className="text-lg font-bold text-slate-900">{t.wizard.intentPickLocalTitle}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.wizard.intentPickLocalSub}</p>
+              <span className="mt-4 inline-flex text-sm font-semibold text-sky-700 group-hover:underline">
+                {t.wizard.intentPickCta}
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => applyIntent("visitor")}
+              className="group rounded-3xl border border-sky-100/90 bg-gradient-to-br from-white/95 to-sky-50/80 p-6 text-left shadow-md transition hover:-translate-y-0.5 hover:shadow-xl"
+            >
+              <h2 className="text-lg font-bold text-slate-900">{t.wizard.intentPickVisitorTitle}</h2>
+              <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.wizard.intentPickVisitorSub}</p>
+              <span className="mt-4 inline-flex text-sm font-semibold text-sky-700 group-hover:underline">
+                {t.wizard.intentPickCta}
+              </span>
+            </button>
+          </div>
+        </div>
+        <SiteFooter locale={locale} />
+      </main>
+    );
   }
 
   return (

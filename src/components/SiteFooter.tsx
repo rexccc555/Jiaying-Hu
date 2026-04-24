@@ -8,8 +8,10 @@ export function SiteFooter({ locale }: { locale: AppLocale }) {
   return (
     <footer className="mt-20 border-t border-white/40 bg-white/50 py-12 text-sm text-slate-600 backdrop-blur">
       <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4">
-        <p>{t.footer.weatherNote}</p>
-        <p>{t.footer.privacyNote}</p>
+        <p>{t.footer.openMeteoLine}</p>
+        <p>{t.footer.independenceLine}</p>
+        <p>{t.footer.docNztaLine}</p>
+        <p>{t.footer.mapsLine}</p>
         <div className="flex flex-wrap gap-4">
           <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}`}>
             {t.footer.home}
@@ -22,6 +24,9 @@ export function SiteFooter({ locale }: { locale: AppLocale }) {
           </Link>
           <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/terms`}>
             {t.footer.termsLink}
+          </Link>
+          <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/disclaimer`}>
+            {t.footer.disclaimerLink}
           </Link>
         </div>
       </div>

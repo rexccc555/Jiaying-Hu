@@ -28,6 +28,33 @@ const zh = {
     plan: "开始规划",
     langZh: "中文",
     langEn: "English",
+    login: "登录",
+    register: "注册",
+    logout: "退出登录",
+    accountMenuAria: "账户菜单",
+  },
+  loginPage: {
+    kicker: "已有账户",
+    title: "登录",
+    metaDescription:
+      "使用注册邮箱登录 takeadayoff.co.nz，继续规划并管理新西兰短途与多日行程。",
+    introLead:
+      "请使用在「保存行程并注册」时填写的邮箱与密码。登录后通过加密 Cookie 维持会话（请勿在公共电脑上保存密码）。",
+    email: "邮箱",
+    password: "密码",
+    submit: "登录",
+    submitting: "登录中…",
+    errInvalid: "邮箱或密码不正确。",
+    errValidation: "请填写有效的邮箱与密码。",
+    errDb: "未配置数据库，暂时无法登录。",
+    errGeneric: "登录失败，请稍后重试。",
+    errSession: "服务器未配置 SESSION_SECRET（至少 16 位），无法完成登录。",
+    securityNote:
+      "密码以 bcrypt 存储。若忘记密码，目前需使用新邮箱重新注册或等待后续「找回密码」功能。",
+    noAccount: "还没有账户？",
+    toRegister: "按引导：先规划再注册",
+    toWizard: "打开向导规划行程",
+    afterLoginHint: "「我的行程」等能力将逐步上线。",
   },
   home: {
     heroKicker: "New Zealand · takeadayoff.co.nz",
@@ -170,6 +197,21 @@ const zh = {
     ],
     bottomNote:
       "图片与长篇攻略未做搬运，避免版权风险；商业化与签证合规请在你准备变现时单独评估。",
+    registerHint: {
+      badge: "注册与保存",
+      title: "先规划，再一键保存行程",
+      lead:
+        "从右上角过来啦？太好了——请先完成一次向导并生成「你的行程」。生成后，在结果页底部使用「保存行程并注册」，即可把路线、天气与链接安全存进账户。",
+      reminder:
+        "后续我们会逐步上线「出发前提醒」：例如行程日期临近时，温柔地提醒你核对天气、路况与开放时间（可随时在邮件里退订）。",
+      perk1: "保存后换设备也不怕丢",
+      perk2: "出发前可收到轻量提醒（陆续开放）",
+      perk3: "为「我的行程」与更多工具打基础",
+      ctaVisitor: "开始规划（游客入口）",
+      ctaLocal: "我住在新西兰",
+      pickHome: "先看首页两种入口 →",
+      dismiss: "知道了",
+    },
   },
   wizard: {
     backHome: "返回首页",
@@ -200,6 +242,13 @@ const zh = {
     whereNotesPlaceholder: "例如：皇后镇进基督城出、想多看湖、少开车…",
     entryBannerLocal: "本地生活 · 短途与周末优先",
     entryBannerVisitor: "游客行程 · 多日与跨区起点",
+    intentPickTitle: "你更像哪一类？",
+    intentPickSub: "选好后向导会按对应流程提问；本地与游客的默认日程长度不同。",
+    intentPickLocalTitle: "我住在新西兰",
+    intentPickLocalSub: "短途、周末、从哪出发、有没有车。",
+    intentPickVisitorTitle: "我来新西兰旅游",
+    intentPickVisitorSub: "从哪个片区开始、玩几天、是否自驾。",
+    intentPickCta: "选此项并继续 →",
     prefAppliedPrefix: "已套用：",
     durationStepHintLocal: "默认已选「一日游」；周末小走可改 2 天 1 夜。",
     durationStepHintVisitor: "默认已选「2 天 1 夜」；抵达日单点或深度环岛可改。",
@@ -278,6 +327,8 @@ const zh = {
     copied: "已复制",
     title: "你的行程",
     noData: "暂无行程数据。",
+    needItineraryToRegister:
+      "要保存并注册需要先有一份行程。请先用向导生成结果，再在页面底部找到「保存行程并注册」。",
     goWizard: "返回向导",
     budgetTitle: "预算区间（粗略）",
     budgetUnit: "新西兰元",
@@ -298,11 +349,11 @@ const zh = {
     rain: "若下雨可改用",
     maxTemp: "最高约",
     rainChance: "降水概率",
-    metaOpenAI: "已由 {model} 结合模板生成。",
+    metaOpenAI: "由AI和我们的官方数据结合生成。",
     metaLocalNoKey:
       "服务端未读到 OPENAI_API_KEY。若在 Netlify 已填写，请确认变量作用域包含「Functions / Runtime」，保存后重新部署一次。",
     metaLocalUpstreamFailed:
-      "已读取 API 配置，但上游接口未返回可用行程，已改用本地模板。请在 Netlify 核对：`OPENAI_BASE_URL` 末尾是否为 `/v1`、密钥是否对应网关；并新增 `OPENAI_MODEL` 为网关要求的模型 id（不设时默认 gpt-4o-mini，易被拒）。仍失败时可加 `OPENAI_RESPONSE_FORMAT_JSON=0` 后重新部署。",
+      "已读取 API 配置，但上游接口未返回可用行程，已改用本地模板。请在 Netlify 核对：`OPENAI_BASE_URL` 末尾是否为 `/v1`、密钥是否对应网关；并设置 `OPENAI_MODEL` 为网关允许的模型 id（不设时默认依次尝试 gpt-5.4、gpt-4o-mini，仍可能被网关策略拒绝）。仍失败时可加 `OPENAI_RESPONSE_FORMAT_JSON=0` 后重新部署。",
     metaLocal:
       "未走智能生成，已用本地模板（可能是未读到 Key 或中转失败；重新生成一次或检查 Netlify 环境变量）。",
     googleDayNav: "第 {day} 天 · Google 导航",
@@ -315,6 +366,8 @@ const zh = {
       "链接用精确坐标打开为单点图钉，避免名称搜索出现多条结果；侧栏可能显示坐标，景点名称见上方链接文案。可在地图内发起路线（以 Google 为准）。",
     googleRainPlace: "若下雨 · Google 地图 · {name}",
     openMeteoLink: "预报数据 · Open-Meteo →",
+    openMeteoCredit: "Weather data provided by Open-Meteo · 数据许可 CC BY 4.0，请保留对 Open-Meteo.com 的署名。",
+    nztaCredit: "路况摘要指向 NZTA / Waka Kotahi；转载或商用请遵守其网站上的版权与署名要求。",
     adjustTitle: "哪里不满意？改一改",
     adjustHint:
       "直接写你想怎么改：加减站点、换风格、更赶或更松、想去的具体项目或地名等。会保留向导里的硬条件，把你的话合并进说明后再生成一版；**请按你的文字改行程，不要照旧套同一批默认点**（必要时可用带坐标的目录外场地）。",
@@ -345,6 +398,12 @@ const zh = {
       name: "姓名",
       phone: "手机号",
       phoneOptional: "选填",
+      termsCheckbox: "我已阅读并同意",
+      termsLink: "用户条款",
+      termsAnd: "与",
+      privacyLinkLabel: "隐私政策",
+      termsRequired: "（必选）",
+      marketingCheckbox: "我愿意接收行程规划与产品更新的邮件（可选，可随时退订）",
       submit: "保存并注册",
       submitting: "提交中…",
       success: "行程已保存，账户已创建。后续可在此基础上扩展登录与「我的行程」列表。",
@@ -353,19 +412,27 @@ const zh = {
       errDuplicate: "该邮箱已注册，请更换邮箱。",
       errDb: "未配置数据库（DATABASE_URL），暂时无法保存。请在服务器环境配置 SQLite 或 PostgreSQL 连接串。",
       errValidation: "请检查邮箱、密码与姓名格式。",
+      errTerms: "请先勾选同意《用户条款》与《隐私政策》。",
     },
   },
   legal: {
     lastUpdatedLabel: "最近更新：",
+    backToResult: "返回行程与注册",
   },
   footer: {
-    weatherNote:
-      "takeadayoff.co.nz · 天气数据来自 Open-Meteo。路况请以 NZTA 为准。",
-    privacyNote: "天气与路况展示为公开数据源摘要；出发前请以各官方渠道实时信息为准。",
+    openMeteoLine:
+      "天气数据由 Open-Meteo 提供（Weather data provided by Open-Meteo）。数据在 CC BY 4.0 下发布，请保留对 Open-Meteo.com 的适当署名。免费 API 通常限于非商业用途；若本站出现广告、会员、收费或商业合作，应另行遵守 Open-Meteo 商业方案或改用已授权数据源。",
+    independenceLine:
+      "本站为独立行程规划工具，并非 DOC、NZTA、Open-Meteo、Google 或任何政府机构官方网站。出行前请以官方渠道的实时天气、路况与安全信息为准。",
+    docNztaLine:
+      "DOC 与 NZTA：本站提供指向官方页面的链接与摘要式入口；引用或衍生公开材料时，请分别按 Department of Conservation 与 NZTA 网站所示的 Crown copyright / CC BY 4.0 等要求进行署名。",
+    mapsLine:
+      "地图：本站以「在 Google 地图中打开」等外链为主，不把 Google 地图/街景截图当作自有图库；若将来嵌入地图组件，将保留 Google 及数据提供方要求的署名与徽标。",
     home: "首页",
     plan: "开始规划",
     privacyLink: "隐私政策",
     termsLink: "用户条款",
+    disclaimerLink: "免责声明",
   },
   styleTags: {
     nature: "自然",
@@ -395,6 +462,33 @@ const en = {
     plan: "Start planning",
     langZh: "中文",
     langEn: "English",
+    login: "Log in",
+    register: "Sign up",
+    logout: "Log out",
+    accountMenuAria: "Account menu",
+  },
+  loginPage: {
+    kicker: "Welcome back",
+    title: "Log in",
+    metaDescription:
+      "Sign in to takeadayoff.co.nz with the email you used when saving an itinerary.",
+    introLead:
+      "Use the same email and password as Save itinerary & sign-up. We keep your session in an encrypted cookie—avoid saving passwords on shared computers.",
+    email: "Email",
+    password: "Password",
+    submit: "Log in",
+    submitting: "Signing in…",
+    errInvalid: "Incorrect email or password.",
+    errValidation: "Enter a valid email and password.",
+    errDb: "Database not configured—sign-in unavailable.",
+    errGeneric: "Could not sign in. Try again shortly.",
+    errSession: "SESSION_SECRET (16+ chars) is not configured—sign-in cannot complete.",
+    securityNote:
+      "Passwords are stored with bcrypt. Password reset isn’t available yet—use a new email to register again or wait for a recovery flow.",
+    noAccount: "No account yet?",
+    toRegister: "Plan first, then sign up",
+    toWizard: "Open the planner",
+    afterLoginHint: "“My trips” and more are coming soon.",
   },
   home: {
     heroKicker: "New Zealand · takeadayoff.co.nz",
@@ -537,6 +631,21 @@ const en = {
     ],
     bottomNote:
       "We don’t scrape long-form blogs or bulk images—less copyright risk. Check visa/business rules before monetising.",
+    registerHint: {
+      badge: "Sign up & save",
+      title: "Plan first, then save your trip",
+      lead:
+        "You came from the account menu—nice. Finish the planner once and generate your itinerary. Then scroll to Save itinerary & sign-up at the bottom of the results page to store routes, weather, and links in your account.",
+      reminder:
+        "We’re building gentle pre-trip reminders (e.g. a few days before your dates—weather, roads, opening hours). You’ll be able to opt in or out anytime in email.",
+      perk1: "No more losing a tab-full of plans",
+      perk2: "Optional nudges before you head out (rolling out)",
+      perk3: "Sets you up for “My trips” and more",
+      ctaVisitor: "Start as a visitor",
+      ctaLocal: "I live in NZ",
+      pickHome: "View both paths on this page →",
+      dismiss: "Got it",
+    },
   },
   wizard: {
     backHome: "Back to home",
@@ -570,6 +679,13 @@ const en = {
       "e.g. fly into Queenstown, out of Christchurch; more lakes, less driving…",
     entryBannerLocal: "Local life · day trips & weekends first",
     entryBannerVisitor: "Visitor mode · multi-day & hub-to-hub",
+    intentPickTitle: "Which sounds more like you?",
+    intentPickSub: "Questions and defaults differ for locals vs visitors—pick the path that fits you.",
+    intentPickLocalTitle: "I live in New Zealand",
+    intentPickLocalSub: "Day trips, weekends, where you start, car or not.",
+    intentPickVisitorTitle: "I’m visiting New Zealand",
+    intentPickVisitorSub: "Starting area, length of stay, self-drive or not.",
+    intentPickCta: "Continue with this path →",
     prefAppliedPrefix: "Applied: ",
     durationStepHintLocal: "We start on a day trip—bump to 2D/1N for a weekend escape.",
     durationStepHintVisitor: "We start at 2D/1N—switch to a day trip for arrival days or add nights for loops.",
@@ -648,6 +764,8 @@ const en = {
     copied: "Copied",
     title: "Your itinerary",
     noData: "No itinerary saved in this browser tab.",
+    needItineraryToRegister:
+      "To save and register you need an itinerary first. Generate one in the planner, then scroll to Save itinerary & sign-up at the bottom of the results page.",
     goWizard: "Go to planner",
     budgetTitle: "Rough budget band",
     budgetUnit: "NZD",
@@ -668,11 +786,11 @@ const en = {
     rain: "If it rains",
     maxTemp: "High ~",
     rainChance: "rain chance",
-    metaOpenAI: "Generated with {model} on top of local templates.",
+    metaOpenAI: "Generated using AI together with our official data (weather, roads, and verified links).",
     metaLocalNoKey:
       "The server didn’t see OPENAI_API_KEY. If you set it on Netlify, include Functions/Runtime in the variable scope, save, then redeploy.",
     metaLocalUpstreamFailed:
-      "API settings were read, but the upstream gateway didn’t return a usable itinerary—fell back to local templates. On Netlify verify OPENAI_BASE_URL ends with /v1 and the key matches the gateway; add OPENAI_MODEL to the model id your provider requires (default is gpt-4o-mini and may be rejected). If it still fails, set OPENAI_RESPONSE_FORMAT_JSON=0 and redeploy.",
+      "API settings were read, but the upstream gateway didn’t return a usable itinerary—fell back to local templates. On Netlify verify OPENAI_BASE_URL ends with /v1 and the key matches the gateway; set OPENAI_MODEL to a model id your provider allows (unset defaults to trying gpt-5.4 then gpt-4o-mini). If it still fails, set OPENAI_RESPONSE_FORMAT_JSON=0 and redeploy.",
     metaLocal:
       "Smart generation didn’t run—local templates only (missing key or upstream failure; check Netlify env and regenerate).",
     googleDayNav: "Day {day} · Google Maps",
@@ -685,6 +803,10 @@ const en = {
       "Links use exact coordinates so Maps opens one pin (name search often shows multiple results). The sidebar may show coordinates; the stop name is in the link text above.",
     googleRainPlace: "Rain option · Google Maps · {name}",
     openMeteoLink: "Forecast data · Open-Meteo →",
+    openMeteoCredit:
+      "Weather data provided by Open-Meteo. Licensed under CC BY 4.0—please credit Open-Meteo.com.",
+    nztaCredit:
+      "Road summaries point to NZTA / Waka Kotahi; follow their copyright and attribution rules if you republish or commercialise.",
     adjustTitle: "Something off? Tweak and regenerate",
     adjustHint:
       "Say exactly what to change—add/remove stops, swap vibes, tighter or slower pacing, named places or activities. We merge it into your last wizard payload and regenerate; **the new text should visibly reshape the plan**, not recycle the same default loop (out-of-catalog pins allowed when needed).",
@@ -716,6 +838,13 @@ const en = {
       name: "Full name",
       phone: "Mobile",
       phoneOptional: "optional",
+      termsCheckbox: "I have read and agree to the",
+      termsLink: "Terms of Use",
+      termsAnd: "and",
+      privacyLinkLabel: "Privacy Policy",
+      termsRequired: "(required)",
+      marketingCheckbox:
+        "I’d like occasional email updates about trip planning and product news (optional; you can unsubscribe anytime).",
       submit: "Save & register",
       submitting: "Saving…",
       success: "Saved. Your account is created—you can later add login and “my trips”.",
@@ -724,20 +853,27 @@ const en = {
       errDuplicate: "That email is already registered—use another email.",
       errDb: "Database not configured (DATABASE_URL). Set a SQLite or Postgres URL on the server.",
       errValidation: "Check email, password, and name format.",
+      errTerms: "Please agree to the Terms of Use and Privacy Policy to continue.",
     },
   },
   legal: {
     lastUpdatedLabel: "Last updated:",
+    backToResult: "Back to itinerary & sign-up",
   },
   footer: {
-    weatherNote:
-      "takeadayoff.co.nz · Weather data from Open-Meteo. Always trust NZTA for roads.",
-    privacyNote:
-      "Weather and road snippets are summaries from public sources—verify live conditions on official channels before you travel.",
+    openMeteoLine:
+      "Weather data provided by Open-Meteo. Data is published under CC BY 4.0—please retain appropriate credit to Open-Meteo.com. The free API is generally for non-commercial use; if the Site adds ads, subscriptions, paid features, or commercial partnerships, obtain Open-Meteo’s commercial offering or another licensed source.",
+    independenceLine:
+      "This website is an independent trip planner. It is not the official website of DOC, NZTA, Open-Meteo, Google, or any government agency. Always verify live weather, roads, and safety information through official channels before you travel.",
+    docNztaLine:
+      "DOC & NZTA: the Site links to official pages and may show short summaries. When you reuse or adapt public materials, follow each agency’s Crown copyright / CC BY 4.0 (or other) notices—credit the Department of Conservation and NZTA as their sites require.",
+    mapsLine:
+      "Maps: the Site mainly uses outbound “Open in Google Maps” links and does not pass off Maps/Street View screenshots as proprietary imagery. If embedded maps are added later, required Google and data-provider attribution will be preserved.",
     home: "Home",
     plan: "Planner",
     privacyLink: "Privacy Policy",
     termsLink: "Terms of Use",
+    disclaimerLink: "Disclaimer",
   },
   styleTags: {
     nature: "Nature",

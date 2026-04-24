@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { isAppLocale, type AppLocale } from "@/i18n/config";
 import { messages } from "@/i18n/messages";
+import { UserMenu } from "@/components/UserMenu";
 
 export function AppNav() {
   const pathname = usePathname();
@@ -54,6 +55,7 @@ export function AppNav() {
           >
             {locale === "zh" ? t.nav.langEn : t.nav.langZh}
           </Link>
+          <UserMenu />
         </nav>
       </div>
     </header>

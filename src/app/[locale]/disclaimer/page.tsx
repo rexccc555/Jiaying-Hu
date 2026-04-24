@@ -15,22 +15,22 @@ type Props = {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale: raw } = await params;
   const locale: AppLocale = isAppLocale(raw) ? raw : "zh";
-  const doc = legalDoc(locale, "privacy");
+  const doc = legalDoc(locale, "disclaimer");
   const base = getSiteUrl();
   return {
     title: `${doc.title} · takeadayoff.co.nz`,
     description: doc.intro.slice(0, 155),
     alternates: {
-      canonical: `${base}/${locale}/privacy`,
+      canonical: `${base}/${locale}/disclaimer`,
     },
   };
 }
 
-export default async function PrivacyPage({ params, searchParams }: Props) {
+export default async function DisclaimerPage({ params, searchParams }: Props) {
   const { locale: raw } = await params;
   if (!isAppLocale(raw)) notFound();
   const locale = raw as AppLocale;
-  const doc = legalDoc(locale, "privacy");
+  const doc = legalDoc(locale, "disclaimer");
   const sp = await searchParams;
   const returnPath = safeInternalReturnPath(locale, sp.returnTo);
   const t = messages[locale];

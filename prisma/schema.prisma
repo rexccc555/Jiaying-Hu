@@ -1,20 +1,23 @@
 generator client {
-  provider = "prisma-client-js"
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
 model User {
-  id           String      @id @default(cuid())
-  email        String      @unique
-  passwordHash String
-  name         String
-  phone        String?
-  createdAt    DateTime    @default(now())
-  savedTrips   SavedTrip[]
+  id               String      @id @default(cuid())
+  email            String      @unique
+  passwordHash     String
+  name             String
+  phone            String?
+  /** 注册时是否勾选「接收邮件更新」（可选） */
+  marketingOptIn   Boolean     @default(false)
+  createdAt        DateTime    @default(now())
+  savedTrips       SavedTrip[]
 }
 
 model SavedTrip {

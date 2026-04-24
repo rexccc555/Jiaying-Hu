@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { Suspense } from "react";
+import { HomeRegisterHint } from "@/components/HomeRegisterHint";
 import { SiteFooter } from "@/components/SiteFooter";
 import { getRegionsWithPois } from "@/data/regions";
 import { isAppLocale, type AppLocale } from "@/i18n/config";
@@ -22,6 +24,9 @@ export default async function HomePage({ params }: Props) {
 
   return (
     <main className="pb-6">
+      <Suspense fallback={null}>
+        <HomeRegisterHint locale={locale} />
+      </Suspense>
       <section className="relative overflow-hidden px-4 pb-16 pt-10 sm:pt-14">
         <div className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2240%22%20height%3D%2240%22%3E%3Cpath%20d%3D%22M0%2040h40%22%20fill%3D%22none%22%20stroke%3D%22%23ffffff22%22/%3E%3C/svg%3E')] opacity-40" />
         <div className="relative mx-auto max-w-6xl">
@@ -37,7 +42,7 @@ export default async function HomePage({ params }: Props) {
           </p>
           <p className="mt-4 max-w-3xl text-lg leading-relaxed text-slate-600 sm:text-xl">{t.home.heroSub}</p>
 
-          <p id="pick-path" className="mt-8 scroll-mt-24 text-sm font-medium text-slate-700">
+          <p id="pick-path" className="mt-8 scroll-mt-32 text-sm font-medium text-slate-700">
             {t.home.entriesLead}
           </p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">

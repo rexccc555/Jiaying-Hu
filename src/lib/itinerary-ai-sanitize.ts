@@ -80,8 +80,10 @@ export function sanitizeAiItinerary(
 ): ItineraryPayload {
   return {
     ...payload,
-    days: payload.days.map((d) => ({
+    /** 模型常把「几日行程」误写成日历日（如 24）；按数组顺序强制为第 1、2… 天，便于展示与 dayMapLinks 对齐 */
+    days: payload.days.map((d, idx) => ({
       ...d,
+      day: idx + 1,
       blocks: d.blocks.map((b) => sanitizeBlock(b, validPoiIds)),
     })),
   };
