@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://takeadayoff.co.nz/zh</loc><lastmod>2026-04-24</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://takeadayoff.co.nz/en</loc><lastmod>2026-04-24</lastmod><changefreq>weekly</changefreq><priority>1.0</priority></url>
+  <url><loc>https://takeadayoff.co.nz/zh/wizard</loc><lastmod>2026-04-24</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://takeadayoff.co.nz/en/wizard</loc><lastmod>2026-04-24</lastmod><changefreq>weekly</changefreq><priority>0.9</priority></url>
+  <url><loc>https://takeadayoff.co.nz/zh/privacy</loc><lastmod>2026-04-24</lastmod><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://takeadayoff.co.nz/en/privacy</loc><lastmod>2026-04-24</lastmod><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://takeadayoff.co.nz/zh/terms</loc><lastmod>2026-04-24</lastmod><changefreq>yearly</changefreq><priority>0.3</priority></url>
+  <url><loc>https://takeadayoff.co.nz/en/terms</loc><lastmod>2026-04-24</lastmod><changefreq>yearly</changefreq><priority>0.3</priority></url>
+</urlset>
