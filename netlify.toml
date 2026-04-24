@@ -6,3 +6,6 @@
 
 [[plugins]]
   package = "@netlify/plugin-nextjs"
+
+# Next.js API Route 默认超时偏短时，生成行程易 502；各套餐上限以 Netlify 文档为准。
+# 路由内已设 `export const maxDuration = 120`（见 src/app/api/generate/route.ts）。

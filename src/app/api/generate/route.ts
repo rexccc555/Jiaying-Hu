@@ -25,6 +25,9 @@ import {
   tripEndDateIso,
 } from "@/lib/dates-auckland";
 
+/** 天气 + NZTA + OpenAI + 可选逐链探测；Netlify 默认过短易 502，尽量放宽（平台上限内生效） */
+export const maxDuration = 120;
+
 function collectSources(
   itinerary: ItineraryPayload,
   locale: AppLocale,
