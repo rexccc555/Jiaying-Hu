@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { ITINERARY_RESULT_STORAGE_KEY, WIZARD_PAYLOAD_STORAGE_KEY } from "@/lib/result-session-keys";
 import type { GenerateResponse, WizardInput } from "@/lib/types";
 import { SiteFooter } from "@/components/SiteFooter";
 import type { AppLocale } from "@/i18n/config";
 import { messages } from "@/i18n/messages";
 import { RegisterSaveCard } from "./RegisterSaveCard";
+import { SaveTripBanner } from "./SaveTripBanner";
+import { SavedTripToolbar } from "./SavedTripToolbar";
 import { getPoiById } from "@/data/pois";
 import {
   AT_JOURNEY_PLANNER_URL,
@@ -18,15 +21,30 @@ import { resolveBlockPrimaryPlace } from "@/lib/itinerary-block-map";
 import { TNZ_GETTING_AROUND_URL } from "@/lib/nz-transit-links";
 import { usesAucklandTransit } from "@/lib/transit-regions";
 import { addCalendarDaysIso } from "@/lib/dates-auckland";
+import { buildAdjustSummaryLines } from "@/lib/itinerary-adjust-summary";
+import {
+  displayBlockNotes,
+  displayBlockTitle,
+  displayDayTheme,
+  displayRainPlanTitle,
+} from "@/lib/itinerary-display";
+import { getDocHubsForRegion } from "@/data/doc-hubs";
+import { collectItinerarySources } from "@/lib/itinerary-sources";
+import { apiStrings } from "@/i18n/api-copy";
+import {
+  localizedBudgetAssumption,
+  localizedRoadSummary,
+  localizedTripContext,
+  localizedWarningsForUi,
+  localizedWeatherSummary,
+} from "@/lib/result-live-localization";
+import { safetyLinksForRegion } from "@/lib/safety-links";
 
 function isoToMonthDayParen(iso: string): string | null {
   const p = iso.split("-");
   if (p.length < 3) return null;
   return `${p[1]}-${p[2]}`;
 }
-
-const STORAGE_KEY = "nzItineraryResult";
-const WIZARD_PAYLOAD_KEY = "nzWizardLastPayload";
 
 function mergeWhereNotes(prev: string | undefined, feedback: string, loc: AppLocale): string {
   const p = (prev ?? "").trim();
@@ -36,14 +54,28 @@ function mergeWhereNotes(prev: string | undefined, feedback: string, loc: AppLoc
   return loc === "zh" ? `${p}\n（希望调整：${f}）` : `${p}\n(Request: ${f})`;
 }
 
-export default function ResultClient({ locale }: { locale: AppLocale }) {
+export default function ResultClient({
+  locale,
+  initialItinerary,
+  savedTripId,
+  initialWizardPayload,
+}: {
+  locale: AppLocale;
+  /** 查看已保存行程时传入完整生成结果 */
+  initialItinerary?: GenerateResponse;
+  savedTripId?: string;
+  /** 已保存行程附带向导 payload（无则从 DB 读不到，无法「改一改」） */
+  initialWizardPayload?: WizardInput | null;
+}) {
   const t = messages[locale];
-  const [data, setData] = useState<GenerateResponse | null>(null);
+  const [data, setData] = useState<GenerateResponse | null>(initialItinerary ?? null);
   const [adjustNotes, setAdjustNotes] = useState("");
   const [adjustBusy, setAdjustBusy] = useState(false);
   const [adjustErr, setAdjustErr] = useState<string | null>(null);
   const [hasWizardPayload, setHasWizardPayload] = useState(false);
+  const [adjustOutcome, setAdjustOutcome] = useState<{ note: string; lines: string[] } | null>(null);
   const [hashWantsRegister, setHashWantsRegister] = useState(false);
+  const [me, setMe] = useState<{ id: string; email: string; name: string } | null | undefined>(undefined);
 
   useEffect(() => {
     const syncHash = () => setHashWantsRegister(window.location.hash === "#register-save");
@@ -53,22 +85,59 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
   }, []);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    if (initialItinerary) {
+      setData(initialItinerary);
+      return;
+    }
+    const raw = sessionStorage.getItem(ITINERARY_RESULT_STORAGE_KEY);
     if (!raw) return;
     try {
       setData(JSON.parse(raw) as GenerateResponse);
     } catch {
       setData(null);
     }
-  }, []);
+  }, [initialItinerary]);
+
+  useEffect(() => {
+    if (savedTripId) {
+      setMe(null);
+      return;
+    }
+    let cancelled = false;
+    fetch("/api/auth/me", { credentials: "include" })
+      .then((r) => r.json())
+      .then((d: { user?: { id: string; email: string; name: string } | null }) => {
+        if (!cancelled) setMe(d.user ?? null);
+      })
+      .catch(() => {
+        if (!cancelled) setMe(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [savedTripId]);
 
   useEffect(() => {
     if (!data) return;
-    setHasWizardPayload(Boolean(sessionStorage.getItem(WIZARD_PAYLOAD_KEY)));
-  }, [data]);
+    if (savedTripId) {
+      if (initialWizardPayload) {
+        sessionStorage.setItem(WIZARD_PAYLOAD_STORAGE_KEY, JSON.stringify(initialWizardPayload));
+        setHasWizardPayload(true);
+      } else {
+        setHasWizardPayload(false);
+      }
+      return;
+    }
+    if (data.requestSnapshot && typeof window !== "undefined") {
+      sessionStorage.setItem(WIZARD_PAYLOAD_STORAGE_KEY, JSON.stringify(data.requestSnapshot));
+      setHasWizardPayload(true);
+      return;
+    }
+    setHasWizardPayload(Boolean(sessionStorage.getItem(WIZARD_PAYLOAD_STORAGE_KEY)));
+  }, [data, savedTripId, initialWizardPayload]);
 
   const handleAdjustRegenerate = useCallback(async () => {
-    const raw = sessionStorage.getItem(WIZARD_PAYLOAD_KEY);
+    const raw = sessionStorage.getItem(WIZARD_PAYLOAD_STORAGE_KEY);
     const note = adjustNotes.trim();
     if (!raw) {
       setAdjustErr(t.result.adjustNoPayload);
@@ -87,6 +156,12 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
     }
     setAdjustErr(null);
     setAdjustBusy(true);
+    setAdjustOutcome(null);
+    const prevData = data;
+    if (!prevData) {
+      setAdjustBusy(false);
+      return;
+    }
     try {
       const body: WizardInput = {
         ...base,
@@ -110,41 +185,78 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
         setAdjustErr(typeof json.error === "string" ? json.error : t.result.adjustFail);
         return;
       }
-      sessionStorage.setItem(STORAGE_KEY, JSON.stringify(json));
-      sessionStorage.setItem(WIZARD_PAYLOAD_KEY, JSON.stringify(body));
+      sessionStorage.setItem(ITINERARY_RESULT_STORAGE_KEY, JSON.stringify(json));
+      sessionStorage.setItem(WIZARD_PAYLOAD_STORAGE_KEY, JSON.stringify(body));
       setData(json as GenerateResponse);
       setAdjustNotes("");
+      const diffLines = buildAdjustSummaryLines(prevData, json as GenerateResponse, locale);
+      setAdjustOutcome({
+        note,
+        lines: diffLines.length > 0 ? diffLines : [t.result.adjustSummaryNoStructuralDiff],
+      });
     } catch {
       setAdjustErr(t.result.adjustFail);
     } finally {
       setAdjustBusy(false);
     }
-  }, [adjustNotes, locale, t]);
+  }, [adjustNotes, data, locale, t]);
 
   const scrollToRegisterSave = useCallback(() => {
+    if (savedTripId) return;
     if (typeof window === "undefined" || window.location.hash !== "#register-save") return;
     window.requestAnimationFrame(() => {
       document.getElementById("register-save")?.scrollIntoView({ behavior: "smooth", block: "start" });
     });
+  }, [savedTripId]);
+
+  const scrollToAdjustTrip = useCallback(() => {
+    if (typeof window === "undefined" || window.location.hash !== "#adjust-trip") return;
+    window.requestAnimationFrame(() => {
+      document.getElementById("adjust-trip")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      window.setTimeout(() => {
+        const ta = document.querySelector<HTMLTextAreaElement>("#adjust-trip textarea");
+        if (ta) ta.focus();
+      }, 420);
+    });
   }, []);
 
   useEffect(() => {
+    if (savedTripId) return;
     if (!data) return;
     if (typeof window === "undefined" || window.location.hash !== "#register-save") return;
     const id = window.setTimeout(() => {
       scrollToRegisterSave();
     }, 100);
     return () => window.clearTimeout(id);
-  }, [data, scrollToRegisterSave]);
+  }, [data, scrollToRegisterSave, savedTripId]);
 
   useEffect(() => {
+    if (savedTripId) return;
     if (!data) return;
     const onHash = () => {
       if (window.location.hash === "#register-save") scrollToRegisterSave();
     };
     window.addEventListener("hashchange", onHash);
     return () => window.removeEventListener("hashchange", onHash);
-  }, [data, scrollToRegisterSave]);
+  }, [data, scrollToRegisterSave, savedTripId]);
+
+  useEffect(() => {
+    if (!data) return;
+    if (typeof window === "undefined" || window.location.hash !== "#adjust-trip") return;
+    const id = window.setTimeout(() => {
+      scrollToAdjustTrip();
+    }, 100);
+    return () => window.clearTimeout(id);
+  }, [data, scrollToAdjustTrip]);
+
+  useEffect(() => {
+    if (!data) return;
+    const onHash = () => {
+      if (window.location.hash === "#adjust-trip") scrollToAdjustTrip();
+    };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, [data, scrollToAdjustTrip]);
 
   if (!data) {
     return (
@@ -165,6 +277,11 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
   }
 
   const copyText = () => {
+    const budgetAssumptionCopy = localizedBudgetAssumption(
+      data.itinerary.budgetBandEstimate.assumptions,
+      locale,
+    );
+    const docHubsCopy = getDocHubsForRegion(data.meta?.regionId ?? "auckland-central", locale);
     const lines: string[] = [];
     for (let idx = 0; idx < data.itinerary.days.length; idx++) {
       const d = data.itinerary.days[idx]!;
@@ -173,23 +290,26 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
         data.tripDates?.startDate != null
           ? isoToMonthDayParen(addCalendarDaysIso(data.tripDates.startDate, idx))
           : null;
+      const themeLine = displayDayTheme(d, dayNum, locale, t.result.dayThemeNeutral);
       const head =
         locale === "zh"
           ? dateParen
-            ? `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${d.theme}（${dateParen}）`
-            : `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${d.theme}`
+            ? `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${themeLine}（${dateParen}）`
+            : `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${themeLine}`
           : dateParen
-            ? `${t.result.dayPrefix} ${dayNum} · ${d.theme} (${dateParen})`
-            : `${t.result.dayPrefix} ${dayNum} · ${d.theme}`;
+            ? `${t.result.dayPrefix} ${dayNum} · ${themeLine} (${dateParen})`
+            : `${t.result.dayPrefix} ${dayNum} · ${themeLine}`;
       lines.push(head);
       for (const b of d.blocks) {
+        const bt = displayBlockTitle(b, locale);
         lines.push(
-          `${b.startTime}-${b.endTime} ${b.title} (${t.result.drive} ${b.driveMinutesFromPrev} ${t.result.driveUnit}, ${t.result.stay} ${b.stayMinutes} ${t.result.stayUnit})`,
+          `${b.startTime}-${b.endTime} ${bt} (${t.result.drive} ${b.driveMinutesFromPrev} ${t.result.driveUnit}, ${t.result.stay} ${b.stayMinutes} ${t.result.stayUnit})`,
         );
-        if (b.notes) lines.push(`  ${b.notes}`);
-        if (b.rainPlan) lines.push(`  ${t.result.rain}: ${b.rainPlan.title}`);
+        const noteLine = displayBlockNotes(b, locale, t.result.blockNotesAiOtherLang);
+        if (noteLine) lines.push(`  ${noteLine}`);
+        if (b.rainPlan) lines.push(`  ${displayRainPlanTitle(b.rainPlan, locale)}`);
         const mapRegion = data.meta?.regionId ?? "auckland-central";
-        const primary = resolveBlockPrimaryPlace(b, mapRegion);
+        const primary = resolveBlockPrimaryPlace(b, mapRegion, locale);
         if (primary) {
           const place = {
             name: primary.name,
@@ -203,13 +323,14 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
         if (b.rainPlan?.poiTemplateId) {
           const rp = getPoiById(b.rainPlan.poiTemplateId);
           if (rp && Number.isFinite(rp.lat) && Number.isFinite(rp.lng)) {
+            const rpDisplayName = displayRainPlanTitle(b.rainPlan, locale);
             const rpPlace = {
               name: rp.name,
               regionId: rp.regionId,
               googlePlaceId: rp.googlePlaceId,
             };
             lines.push(
-              `  ${t.result.googleRainPlace.replace("{name}", rp.name)}: ${poiGoogleMapsUrl(rp.lat, rp.lng, rpPlace)}`,
+              `  ${t.result.googleRainPlace.replace("{name}", rpDisplayName)}: ${poiGoogleMapsUrl(rp.lat, rp.lng, rpPlace)}`,
             );
           }
         }
@@ -245,11 +366,11 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
       );
     }
     lines.push(
-      `${t.result.budgetTitle}: ${data.itinerary.budgetBandEstimate.currency} ${data.itinerary.budgetBandEstimate.low}-${data.itinerary.budgetBandEstimate.high} (${data.itinerary.budgetBandEstimate.assumptions})`,
+      `${t.result.budgetTitle}: ${data.itinerary.budgetBandEstimate.currency} ${data.itinerary.budgetBandEstimate.low}-${data.itinerary.budgetBandEstimate.high} (${budgetAssumptionCopy})`,
     );
-    if (data.docHubs?.length) {
+    if (docHubsCopy.length > 0) {
       lines.push("", t.result.docTitle);
-      for (const d of data.docHubs) lines.push(`${d.label}: ${d.url}`);
+      for (const d of docHubsCopy) lines.push(`${d.label}: ${d.url}`);
     }
     void navigator.clipboard.writeText(lines.join("\n"));
   };
@@ -262,13 +383,34 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
         ? t.result.metaLocalUpstreamFailed
         : t.result.metaLocal;
 
+  const generationLocale = data.requestSnapshot?.locale ?? initialWizardPayload?.locale;
+  const showLocaleMismatchBanner = generationLocale != null && generationLocale !== locale;
+
+  const api = apiStrings(locale);
+  const viewDisclaimer = api.disclaimer;
+  const docHubsForUi = getDocHubsForRegion(data.meta?.regionId ?? "auckland-central", locale);
+  const regionId = data.meta?.regionId ?? "auckland-central";
+  const safetyLinksForUi = safetyLinksForRegion(regionId, locale);
+  const sourcesForUi = collectItinerarySources(data.itinerary, locale);
+  const weatherSummaryUi = localizedWeatherSummary(data.weather, locale);
+  const weatherTripContextUi = localizedTripContext(data.weather, data.tripDates, locale);
+  const roadSummaryUi = localizedRoadSummary(data.roads, locale);
+  const budgetAssumptionUi = localizedBudgetAssumption(data.itinerary.budgetBandEstimate.assumptions, locale);
+  const warningsForUi = localizedWarningsForUi(data.itinerary.warnings, locale);
+
   return (
     <main className="pb-24">
       <div className="mx-auto max-w-2xl px-4 pt-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <Link href={`/${locale}/wizard`} className="text-sm font-semibold text-sky-700 hover:underline">
-            ← {t.result.back}
-          </Link>
+          {savedTripId ? (
+            <Link href={`/${locale}/account`} className="text-sm font-semibold text-sky-700 hover:underline">
+              ← {t.result.savedTripBackAccount}
+            </Link>
+          ) : (
+            <Link href={`/${locale}/wizard`} className="text-sm font-semibold text-sky-700 hover:underline">
+              ← {t.result.back}
+            </Link>
+          )}
           <button
             type="button"
             onClick={copyText}
@@ -286,7 +428,14 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
         ) : null}
 
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{t.result.title}</h1>
-        <p className="mt-2 text-sm leading-relaxed text-slate-600">{data.meta.disclaimer}</p>
+        <p className="mt-2 text-sm leading-relaxed text-slate-600">{viewDisclaimer}</p>
+        {showLocaleMismatchBanner ? (
+          <p className="mt-3 rounded-xl border border-indigo-200 bg-indigo-50/90 px-4 py-3 text-sm leading-relaxed text-indigo-950">
+            {t.result.contentLocaleMismatchBanner}
+          </p>
+        ) : null}
+
+        {savedTripId ? <SavedTripToolbar locale={locale} tripId={savedTripId} /> : null}
 
         {data.tripDates ? (
           <p className="mt-4 inline-flex flex-wrap items-center gap-2 rounded-2xl border border-sky-200/80 bg-sky-50/80 px-4 py-2 text-sm font-medium text-sky-950">
@@ -299,11 +448,11 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
           </p>
         ) : null}
 
-        {data.docHubs && data.docHubs.length > 0 ? (
+        {docHubsForUi.length > 0 ? (
           <section className="glass mt-6 rounded-3xl p-6">
             <h2 className="text-lg font-bold text-slate-900">{t.result.docTitle}</h2>
             <ul className="mt-3 space-y-2">
-              {data.docHubs.map((d) => (
+              {docHubsForUi.map((d) => (
                 <li key={d.url}>
                   <a
                     className="text-sm font-semibold text-sky-700 hover:underline"
@@ -395,14 +544,15 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
               data.tripDates?.startDate != null
                 ? isoToMonthDayParen(addCalendarDaysIso(data.tripDates.startDate, idx))
                 : null;
+            const themeLine = displayDayTheme(day, dayNum, locale, t.result.dayThemeNeutral);
             const dayHeading =
               locale === "zh"
                 ? dateParen
-                  ? `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${day.theme}（${dateParen}）`
-                  : `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${day.theme}`
+                  ? `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${themeLine}（${dateParen}）`
+                  : `${t.result.dayPrefix} ${dayNum} ${t.result.daySuffix} · ${themeLine}`
                 : dateParen
-                  ? `${t.result.dayPrefix} ${dayNum} · ${day.theme} (${dateParen})`
-                  : `${t.result.dayPrefix} ${dayNum} · ${day.theme}`;
+                  ? `${t.result.dayPrefix} ${dayNum} · ${themeLine} (${dateParen})`
+                  : `${t.result.dayPrefix} ${dayNum} · ${themeLine}`;
             return (
             <section key={`day-${dayNum}-${idx}`} className="glass rounded-3xl p-6 sm:p-8">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
@@ -428,13 +578,15 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
                 <p className="mt-2 text-xs text-slate-500">{t.result.googleDayNavHint}</p>
               ) : null}
               <ol className="mt-5 space-y-5">
-                {day.blocks.map((b, i) => (
+                {day.blocks.map((b, i) => {
+                  const blockNote = displayBlockNotes(b, locale, t.result.blockNotesAiOtherLang);
+                  return (
                   <li key={i} className="relative border-l-2 border-sky-400 pl-5">
                     <span className="absolute -left-[5px] top-1.5 h-2 w-2 rounded-full bg-sky-500" />
                     <p className="text-sm font-semibold text-sky-800">
                       {b.startTime} — {b.endTime}
                     </p>
-                    <p className="text-lg font-semibold text-slate-900">{b.title}</p>
+                    <p className="text-lg font-semibold text-slate-900">{displayBlockTitle(b, locale)}</p>
                     {b.customPlace && !b.poiTemplateId ? (
                       <div className="mt-1 space-y-1">
                         <p className="text-xs font-medium text-amber-800">{t.result.gptCustomStopTag}</p>
@@ -453,7 +605,7 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
                     ) : null}
                     {(() => {
                       const mapRegion = data.meta?.regionId ?? "auckland-central";
-                      const primary = resolveBlockPrimaryPlace(b, mapRegion);
+                      const primary = resolveBlockPrimaryPlace(b, mapRegion, locale);
                       const placeUrl = primary
                         ? poiGoogleMapsUrl(primary.lat, primary.lng, {
                             name: primary.name,
@@ -497,7 +649,9 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
                             >
                               {t.result.googleRainPlace.replace(
                                 "{name}",
-                                rainPoi.name,
+                                b.rainPlan
+                                  ? displayRainPlanTitle(b.rainPlan, locale)
+                                  : rainPoi.name,
                               )}
                               <span aria-hidden>↗</span>
                             </a>
@@ -514,21 +668,22 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
                         : ""}
                       {t.result.stay} {b.stayMinutes} {t.result.stayUnit}
                     </p>
-                    {b.notes ? <p className="mt-2 text-sm text-slate-700">{b.notes}</p> : null}
+                    {blockNote ? <p className="mt-2 text-sm text-slate-700">{blockNote}</p> : null}
                     {b.rainPlan ? (
                       <p className="mt-2 text-sm font-medium text-amber-900">
-                        {t.result.rain}: {b.rainPlan.title}
+                        {displayRainPlanTitle(b.rainPlan, locale)}
                       </p>
                     ) : null}
                   </li>
-                ))}
+                );
+                })}
               </ol>
             </section>
             );
           })}
         </div>
 
-        <section className="glass mt-10 rounded-3xl border border-sky-200/70 bg-sky-50/50 p-6">
+        <section id="adjust-trip" className="glass mt-10 scroll-mt-24 rounded-3xl border border-sky-200/70 bg-sky-50/50 p-6">
           <h2 className="text-lg font-bold text-slate-900">{t.result.adjustTitle}</h2>
           <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.result.adjustHint}</p>
           {hasWizardPayload ? (
@@ -538,6 +693,7 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
                 onChange={(e) => {
                   setAdjustNotes(e.target.value);
                   setAdjustErr(null);
+                  setAdjustOutcome(null);
                 }}
                 rows={3}
                 maxLength={1200}
@@ -553,6 +709,21 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
               >
                 {adjustBusy ? t.result.adjustSubmitting : t.result.adjustSubmit}
               </button>
+              {adjustOutcome ? (
+                <div className="rounded-xl border border-teal-200/90 bg-teal-50/90 px-4 py-3 text-sm text-teal-950 shadow-sm">
+                  <p className="font-semibold text-teal-900">{t.result.adjustSummaryIntro}</p>
+                  <p className="mt-2 leading-relaxed text-teal-900/95">
+                    <span className="font-medium">{t.result.adjustSummaryYourNote}：</span>
+                    <span className="whitespace-pre-wrap">「{adjustOutcome.note}」</span>
+                  </p>
+                  <p className="mt-2 leading-relaxed text-teal-800/95">{t.result.adjustSummaryMergedNote}</p>
+                  <ul className="mt-2 list-inside list-disc space-y-1.5 leading-relaxed text-teal-900/95">
+                    {adjustOutcome.lines.map((line, i) => (
+                      <li key={i}>{line}</li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </div>
           ) : (
             <div className="mt-4 space-y-3">
@@ -574,17 +745,27 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
             {data.itinerary.budgetBandEstimate.low} — {data.itinerary.budgetBandEstimate.high}
           </p>
           <p className="mt-1 text-sm text-emerald-900/90">
-            {data.itinerary.budgetBandEstimate.assumptions}
+            {budgetAssumptionUi}
           </p>
         </section>
 
-        <RegisterSaveCard locale={locale} itinerary={data} />
+        {!savedTripId ? (
+          me === undefined ? (
+            <section className="glass mt-12 rounded-3xl border border-slate-200/80 bg-white/60 p-6 text-center text-sm text-slate-500">
+              {t.result.sessionLoading}
+            </section>
+          ) : me ? (
+            <SaveTripBanner locale={locale} itinerary={data} />
+          ) : (
+            <RegisterSaveCard locale={locale} itinerary={data} />
+          )
+        ) : null}
 
-        {data.itinerary.warnings.length > 0 && (
+        {warningsForUi.length > 0 && (
           <section className="glass mt-8 rounded-3xl border border-amber-200/80 bg-amber-50/60 p-6">
             <h2 className="text-lg font-bold text-amber-950">{t.result.warningsTitle}</h2>
             <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-amber-950">
-              {data.itinerary.warnings.map((w, i) => (
+              {warningsForUi.map((w, i) => (
                 <li key={i}>{w}</li>
               ))}
             </ul>
@@ -596,12 +777,12 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
 
           <div className="glass rounded-3xl p-6">
             <h3 className="font-semibold text-slate-900">
-              {t.result.weather} · {data.weather.provider}
+              {t.result.weather} · {api.weatherProvider}
             </h3>
-            {data.weather.tripContext ? (
-              <p className="mt-2 text-xs leading-relaxed text-slate-600">{data.weather.tripContext}</p>
+            {weatherTripContextUi ? (
+              <p className="mt-2 text-xs leading-relaxed text-slate-600">{weatherTripContextUi}</p>
             ) : null}
-            <p className="mt-2 text-sm leading-relaxed text-slate-700">{data.weather.summary}</p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-700">{weatherSummaryUi}</p>
             {data.weather.daily && data.weather.daily.length > 0 && (
               <ul className="mt-4 grid gap-2 text-sm text-slate-600 sm:grid-cols-2">
                 {data.weather.daily.map((d) => (
@@ -626,9 +807,9 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
 
           <div className="glass rounded-3xl p-6">
             <h3 className="font-semibold text-slate-900">
-              {t.result.roads} · {data.roads.provider}
+              {t.result.roads} · {api.roadProvider}
             </h3>
-            <p className="mt-2 text-sm leading-relaxed text-slate-700">{data.roads.summary}</p>
+            <p className="mt-2 text-sm leading-relaxed text-slate-700">{roadSummaryUi}</p>
             <a
               className="mt-4 inline-block text-sm font-semibold text-sky-700 hover:underline"
               href={data.roads.moreUrl}
@@ -643,7 +824,7 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
           <div className="glass rounded-3xl p-6">
             <h3 className="font-semibold text-slate-900">{t.result.safety}</h3>
             <ul className="mt-3 space-y-2 text-sm">
-              {data.safetyLinks.map((l) => (
+              {safetyLinksForUi.map((l) => (
                 <li key={l.url}>
                   <a className="font-medium text-sky-700 hover:underline" href={l.url} target="_blank" rel="noreferrer">
                     {l.label}
@@ -656,7 +837,7 @@ export default function ResultClient({ locale }: { locale: AppLocale }) {
           <div className="glass rounded-3xl p-6">
             <h3 className="font-semibold text-slate-900">{t.result.sources}</h3>
             <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto text-sm">
-              {data.sources.map((s) => (
+              {sourcesForUi.map((s) => (
                 <li key={s.url}>
                   <a className="text-sky-700 hover:underline" href={s.url} target="_blank" rel="noreferrer">
                     {s.label}

@@ -19,6 +19,7 @@ import {
 } from "@/lib/dates-auckland";
 import type { TripWeatherDaily } from "@/lib/weather";
 import { buildOpenMeteoTripForecastUrl, parseOpenMeteoDailyJson } from "@/lib/weather";
+import { ITINERARY_RESULT_STORAGE_KEY, WIZARD_PAYLOAD_STORAGE_KEY } from "@/lib/result-session-keys";
 import { FREE_DEST_NOTES_MIN_LEN, NZ_OPEN_REGION_ID } from "@/lib/wizard-constants";
 import { orderRegionsForWizardIntent, regionSubgroupsForIntent } from "@/lib/wizard-region-order";
 
@@ -310,8 +311,8 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
         setError(typeof errBody.error === "string" ? errBody.error : t.wizard.errors.failed);
         return;
       }
-      sessionStorage.setItem("nzItineraryResult", JSON.stringify(data));
-      sessionStorage.setItem("nzWizardLastPayload", JSON.stringify(payload));
+      sessionStorage.setItem(ITINERARY_RESULT_STORAGE_KEY, JSON.stringify(data));
+      sessionStorage.setItem(WIZARD_PAYLOAD_STORAGE_KEY, JSON.stringify(payload));
       router.push(`/${locale}/result`);
     } catch {
       setError(t.wizard.errors.network);

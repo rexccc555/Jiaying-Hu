@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import type { GenerateResponse } from "@/lib/types";
 import type { AppLocale } from "@/i18n/config";
+import { WIZARD_PAYLOAD_STORAGE_KEY } from "@/lib/result-session-keys";
 import { messages } from "@/i18n/messages";
 
 type Props = {
@@ -15,6 +17,7 @@ const legalReturnQuery = (locale: AppLocale) =>
   `?returnTo=${encodeURIComponent(`/${locale}/result#register-save`)}`;
 
 export function RegisterSaveCard({ locale, itinerary }: Props) {
+  const router = useRouter();
   const t = messages[locale].result.register;
   const legalQ = legalReturnQuery(locale);
   const [email, setEmail] = useState("");
@@ -22,10 +25,20 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [acceptTerms, setAcceptTerms] = useState(false);
-  const [marketingOptIn, setMarketingOptIn] = useState(false);
+  const [planningReminderOptIn, setPlanningReminderOptIn] = useState(false);
+  const [productNewsOptIn, setProductNewsOptIn] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const selectAllInputRef = useRef<HTMLInputElement>(null);
+
+  const allThreeChecked = acceptTerms && planningReminderOptIn && productNewsOptIn;
+
+  useEffect(() => {
+    const el = selectAllInputRef.current;
+    if (!el) return;
+    const n = Number(acceptTerms) + Number(planningReminderOptIn) + Number(productNewsOptIn);
+    el.indeterminate = n > 0 && n < 3;
+  }, [acceptTerms, planningReminderOptIn, productNewsOptIn]);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,9 +49,21 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
     }
     setLoading(true);
     try {
+      let wizardPayload: unknown = itinerary.requestSnapshot;
+      if (wizardPayload === undefined && typeof window !== "undefined") {
+        const raw = sessionStorage.getItem(WIZARD_PAYLOAD_STORAGE_KEY);
+        if (raw) {
+          try {
+            wizardPayload = JSON.parse(raw) as unknown;
+          } catch {
+            /* ignore */
+          }
+        }
+      }
       const res = await fetch("/api/register-save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({
           email,
           password,
@@ -46,8 +71,10 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
           phone: phone.trim() || undefined,
           locale,
           itinerary,
+          ...(typeof wizardPayload !== "undefined" ? { wizardPayload } : {}),
           acceptTerms: true,
-          marketingOptIn,
+          planningReminderOptIn,
+          productNewsOptIn,
         }),
       });
       const data = (await res.json()) as { ok?: boolean; error?: string; message?: string; hint?: string };
@@ -56,25 +83,14 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
         setError(data.hint ? `${base}\n（开发提示）${data.hint}` : base);
         return;
       }
-      setDone(true);
+      router.push(`/${locale}/account?welcome=1`);
+      router.refresh();
     } catch {
       setError(t.errGeneric);
     } finally {
       setLoading(false);
     }
   };
-
-  if (done) {
-    return (
-      <section
-        id="register-save"
-        className="glass mt-12 scroll-mt-28 rounded-3xl border border-emerald-200/80 bg-emerald-50/70 p-6"
-      >
-        <h2 className="text-lg font-bold text-emerald-950">{t.title}</h2>
-        <p className="mt-2 text-sm font-medium text-emerald-900">{t.success}</p>
-      </section>
-    );
-  }
 
   return (
     <section
@@ -87,11 +103,11 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
 
       <form className="mt-6 space-y-4" onSubmit={submit}>
         <div>
-          <label className="block text-sm font-semibold text-slate-800" htmlFor="reg-name">
-            {t.name}
+          <label className="block text-sm font-semibold text-slate-800" htmlFor="reg-nickname">
+            {t.nickname}
           </label>
           <input
-            id="reg-name"
+            id="reg-nickname"
             name="name"
             autoComplete="name"
             required
@@ -148,7 +164,30 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
           />
         </div>
 
-        <div className="flex gap-3 pt-1">
+        <p className="pt-1 text-xs font-semibold uppercase tracking-wide text-slate-500">{t.checkboxGroupLabel}</p>
+
+        <div className="flex gap-3">
+          <input
+            ref={selectAllInputRef}
+            id="reg-select-all"
+            name="selectAll"
+            type="checkbox"
+            checked={allThreeChecked}
+            onChange={(e) => {
+              const on = e.target.checked;
+              setAcceptTerms(on);
+              setPlanningReminderOptIn(on);
+              setProductNewsOptIn(on);
+            }}
+            className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500/40"
+            aria-label={t.selectAllMaster}
+          />
+          <label htmlFor="reg-select-all" className="text-sm font-medium leading-relaxed text-slate-800">
+            {t.selectAllMaster}
+          </label>
+        </div>
+
+        <div className="flex gap-3">
           <input
             id="reg-terms"
             name="acceptTerms"
@@ -158,6 +197,9 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
             className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500/40"
           />
           <label htmlFor="reg-terms" className="text-sm leading-relaxed text-slate-800">
+            <span className="font-semibold text-rose-600" aria-hidden>
+              *
+            </span>{" "}
             {t.termsCheckbox}{" "}
             <Link
               href={`/${locale}/terms${legalQ}`}
@@ -178,15 +220,29 @@ export function RegisterSaveCard({ locale, itinerary }: Props) {
 
         <div className="flex gap-3">
           <input
-            id="reg-marketing"
-            name="marketingOptIn"
+            id="reg-reminder"
+            name="planningReminderOptIn"
             type="checkbox"
-            checked={marketingOptIn}
-            onChange={(e) => setMarketingOptIn(e.target.checked)}
+            checked={planningReminderOptIn}
+            onChange={(e) => setPlanningReminderOptIn(e.target.checked)}
             className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500/40"
           />
-          <label htmlFor="reg-marketing" className="text-sm leading-relaxed text-slate-800">
-            {t.marketingCheckbox}
+          <label htmlFor="reg-reminder" className="text-sm leading-relaxed text-slate-800">
+            {t.reminderCheckbox}
+          </label>
+        </div>
+
+        <div className="flex gap-3">
+          <input
+            id="reg-product-news"
+            name="productNewsOptIn"
+            type="checkbox"
+            checked={productNewsOptIn}
+            onChange={(e) => setProductNewsOptIn(e.target.checked)}
+            className="mt-1 h-4 w-4 shrink-0 rounded border-slate-300 text-sky-600 focus:ring-sky-500/40"
+          />
+          <label htmlFor="reg-product-news" className="text-sm leading-relaxed text-slate-800">
+            {t.productNewsCheckbox}
           </label>
         </div>
 

@@ -85,7 +85,7 @@ export const apiCopy: Record<
     srcTnz: "Tourism New Zealand",
     docSuffix: " (DOC)",
     bookSuffix: " (bookings)",
-    rainSuffix: " (if wet)",
+    rainSuffix: " · alternate",
     apiInvalid: "Invalid request body",
     apiUnknownRegion: "Unknown area",
     apiNoPoi: "No template stops for this area yet",

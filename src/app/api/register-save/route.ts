@@ -1,24 +1,41 @@
 import { NextResponse } from "next/server";
+import { after } from "next/server";
+import { Prisma } from "@prisma/client";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import type { AppLocale } from "@/i18n/config";
 import { isAppLocale } from "@/i18n/config";
 import { messages } from "@/i18n/messages";
+import { AUTH_COOKIE_NAME, authCookieOptions, SESSION_MAX_AGE_SEC, signSession } from "@/lib/auth-session";
+import { extractWizardForPersist } from "@/lib/extract-wizard-for-save";
+import { serializeSavedTripEnvelope } from "@/lib/saved-trip-payload";
+import { sendWelcomeEmailAfterRegistration } from "@/lib/email/welcome-email";
+import type { GenerateResponse } from "@/lib/types";
 
 const bodySchema = z.object({
   email: z.string().email().max(254).transform((s) => s.toLowerCase().trim()),
   password: z.string().min(8).max(128),
-  name: z.string().min(1).max(80).trim(),
+  name: z.string().transform((s) => s.trim()).pipe(z.string().min(1).max(80)),
   locale: z.enum(["zh", "en"]),
   itinerary: z.record(z.unknown()),
+  /** 可选：向导最后一次 payload，便于日后打开已保存行程后继续「改一改」 */
+  wizardPayload: z.unknown().optional(),
   /** 必须为 true：用户已勾选同意条款 */
   acceptTerms: z.boolean(),
-  marketingOptIn: z.boolean().optional().default(false),
+  planningReminderOptIn: z.boolean().optional().default(false),
+  productNewsOptIn: z.boolean().optional().default(false),
 });
 
 function reg(locale: AppLocale) {
   return messages[locale].result.register;
+}
+
+function p2002Target(e: Prisma.PrismaClientKnownRequestError): string[] {
+  const t = e.meta?.target;
+  if (Array.isArray(t)) return t as string[];
+  if (typeof t === "string") return [t];
+  return [];
 }
 
 export async function POST(req: Request) {
@@ -38,7 +55,20 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: reg(locGuess).errValidation }, { status: 400 });
   }
 
-  const { email, password, name, locale, itinerary, acceptTerms, marketingOptIn } = parsed.data;
+  const {
+    email,
+    password,
+    name: nickname,
+    locale,
+    itinerary,
+    wizardPayload: wizardPayloadRaw,
+    acceptTerms,
+    planningReminderOptIn,
+    productNewsOptIn,
+  } = parsed.data;
+
+  const generateResponse = itinerary as unknown as GenerateResponse;
+  const wizardForEnvelope = extractWizardForPersist(generateResponse, wizardPayloadRaw);
   if (!acceptTerms) {
     return NextResponse.json({ ok: false, error: reg(locale).errTerms }, { status: 400 });
   }
@@ -56,6 +86,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: reg(locale).errDb }, { status: 503 });
   }
 
+  const emailTaken = await prisma.user.findUnique({ where: { email }, select: { id: true } });
+  if (emailTaken) {
+    return NextResponse.json({ ok: false, error: reg(locale).errDuplicateEmail }, { status: 409 });
+  }
+
+  const nickTaken = await prisma.user.findFirst({
+    where: { name: { equals: nickname, mode: "insensitive" } },
+    select: { id: true },
+  });
+  if (nickTaken) {
+    return NextResponse.json({ ok: false, error: reg(locale).errDuplicateNick }, { status: 409 });
+  }
+
   const passwordHash = await bcrypt.hash(password, 12);
 
   try {
@@ -64,34 +107,63 @@ export async function POST(req: Request) {
         data: {
           email,
           passwordHash,
-          name,
+          name: nickname,
           phone: phone ?? null,
-          marketingOptIn,
+          planningReminderOptIn,
+          productNewsOptIn,
         },
       });
       const trip = await tx.savedTrip.create({
         data: {
           userId: user.id,
           locale,
-          payload: JSON.stringify(itinerary),
+          payload: serializeSavedTripEnvelope(generateResponse, wizardForEnvelope),
         },
       });
       return { user, trip };
     });
 
-    return NextResponse.json({
+    let token: string;
+    try {
+      token = signSession(
+        { userId: result.user.id, email: result.user.email, name: result.user.name },
+        SESSION_MAX_AGE_SEC,
+      );
+    } catch {
+      return NextResponse.json({ ok: false, error: reg(locale).errSession }, { status: 503 });
+    }
+
+    const res = NextResponse.json({
       ok: true,
       userId: result.user.id,
       tripId: result.trip.id,
       message: reg(locale).success,
     });
+    res.cookies.set(AUTH_COOKIE_NAME, token, authCookieOptions(SESSION_MAX_AGE_SEC));
+
+    after(async () => {
+      try {
+        await sendWelcomeEmailAfterRegistration({
+          to: result.user.email,
+          nickname: result.user.name,
+          locale,
+        });
+      } catch (e) {
+        console.error("[register-save] welcome email failed", e);
+      }
+    });
+
+    return res;
   } catch (e: unknown) {
-    const code =
-      typeof e === "object" && e !== null && "code" in e
-        ? (e as { code?: string }).code
-        : undefined;
-    if (code === "P2002") {
-      return NextResponse.json({ ok: false, error: reg(locale).errDuplicate }, { status: 409 });
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      const fields = p2002Target(e);
+      if (fields.includes("email")) {
+        return NextResponse.json({ ok: false, error: reg(locale).errDuplicateEmail }, { status: 409 });
+      }
+      if (fields.includes("name")) {
+        return NextResponse.json({ ok: false, error: reg(locale).errDuplicateNick }, { status: 409 });
+      }
+      return NextResponse.json({ ok: false, error: reg(locale).errDuplicateGeneric }, { status: 409 });
     }
     console.error("[register-save]", e);
     const devMsg =

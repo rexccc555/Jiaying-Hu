@@ -51,7 +51,7 @@ export function UserMenu() {
 
   const registerHref = `/${locale}?registerHint=1`;
   const loginNext =
-    pathname && !pathname.split("/").some((p) => p === "login") ? pathname : `/${locale}`;
+    pathname && !pathname.split("/").some((p) => p === "login") ? pathname : `/${locale}/account`;
 
   const logout = async () => {
     setOpen(false);
@@ -113,6 +113,14 @@ export function UserMenu() {
                 <span className="line-clamp-2 font-medium text-slate-800">{user.name}</span>
                 <span className="mt-0.5 block truncate text-[11px]">{user.email}</span>
               </p>
+              <Link
+                role="menuitem"
+                href={`/${locale}/account`}
+                className="block px-4 py-2.5 text-sm font-medium text-slate-800 hover:bg-sky-50"
+                onClick={() => setOpen(false)}
+              >
+                {t.nav.account}
+              </Link>
               <Link
                 role="menuitem"
                 href={`/${locale}`}

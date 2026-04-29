@@ -1,4 +1,6 @@
 import { getPoiById } from "@/data/pois";
+import type { AppLocale } from "@/i18n/config";
+import { poiTitle } from "@/lib/poi-display";
 import type { ItineraryBlock } from "@/lib/types";
 
 export type ResolvedMapPlace = {
@@ -13,13 +15,14 @@ export type ResolvedMapPlace = {
 export function resolveBlockPrimaryPlace(
   block: ItineraryBlock,
   fallbackRegionId: string,
+  locale?: AppLocale,
 ): ResolvedMapPlace | null {
   const p = block.poiTemplateId ? getPoiById(block.poiTemplateId) : undefined;
   if (p && Number.isFinite(p.lat) && Number.isFinite(p.lng)) {
     return {
       lat: p.lat,
       lng: p.lng,
-      name: p.name,
+      name: locale ? poiTitle(p, locale) : p.name,
       regionId: p.regionId,
       googlePlaceId: p.googlePlaceId,
     };

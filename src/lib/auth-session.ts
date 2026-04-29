@@ -3,7 +3,10 @@ import { createHmac, timingSafeEqual } from "crypto";
 /** HttpOnly Cookie 名称（登录会话） */
 export const AUTH_COOKIE_NAME = "tao_session";
 
-const MAX_AGE_SEC = 14 * 24 * 60 * 60;
+/** 默认会话时长（约两周） */
+export const SESSION_MAX_AGE_SEC = 14 * 24 * 60 * 60;
+/** 「保持登录」会话时长（90 天） */
+export const SESSION_REMEMBER_MAX_AGE_SEC = 90 * 24 * 60 * 60;
 
 function resolveSecret(): string | null {
   const s = process.env.SESSION_SECRET;
@@ -16,13 +19,13 @@ export type SessionUser = { userId: string; email: string; name: string };
 
 type Payload = { sub: string; email: string; name: string; iat: number; exp: number };
 
-export function signSession(user: SessionUser): string {
+export function signSession(user: SessionUser, maxAgeSec: number = SESSION_MAX_AGE_SEC): string {
   const secret = resolveSecret();
   if (!secret) {
     throw new Error("SESSION_SECRET (min 16 chars) is required in production to sign sessions");
   }
   const iat = Math.floor(Date.now() / 1000);
-  const exp = iat + MAX_AGE_SEC;
+  const exp = iat + maxAgeSec;
   const payload: Payload = {
     sub: user.userId,
     email: user.email,
@@ -60,12 +63,12 @@ export function verifySessionToken(token: string | undefined): SessionUser | nul
   }
 }
 
-export function authCookieOptions() {
+export function authCookieOptions(maxAgeSec: number = SESSION_MAX_AGE_SEC) {
   return {
     httpOnly: true as const,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax" as const,
     path: "/",
-    maxAge: MAX_AGE_SEC,
+    maxAge: maxAgeSec,
   };
 }

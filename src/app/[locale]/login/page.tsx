@@ -32,7 +32,7 @@ export default async function LoginPage({ params, searchParams }: Props) {
   const locale = raw as AppLocale;
   const sp = await searchParams;
   const nextRaw = typeof sp.next === "string" ? sp.next : undefined;
-  const defaultNext = safeInternalReturnPath(locale, nextRaw) ?? `/${locale}`;
+  const defaultNext = safeInternalReturnPath(locale, nextRaw) ?? `/${locale}/account`;
 
   return (
     <main className="min-h-[60vh] px-4 pb-16 pt-10 sm:pt-14">

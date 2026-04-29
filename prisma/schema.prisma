@@ -12,10 +12,13 @@ model User {
   id               String      @id @default(cuid())
   email            String      @unique
   passwordHash     String
+  /** 昵称；全局唯一由迁移中的 LOWER(TRIM(name)) 唯一索引保证（不区分大小写、忽略首尾空格） */
   name             String
   phone            String?
-  /** 注册时是否勾选「接收邮件更新」（可选） */
-  marketingOptIn   Boolean     @default(false)
+  /** 可选：出发前/行程规划相关邮件提醒 */
+  planningReminderOptIn Boolean @default(false)
+  /** 可选：玩法简报、精选优惠等订阅类邮件 */
+  productNewsOptIn      Boolean @default(false)
   createdAt        DateTime    @default(now())
   savedTrips       SavedTrip[]
 }

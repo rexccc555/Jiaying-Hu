@@ -125,6 +125,11 @@ export interface ItineraryPayload {
 
 export interface GenerateResponse {
   itinerary: ItineraryPayload;
+  /**
+   * 与本次生成请求一致的向导入参；由 /api/generate 回显，便于结果页存盘时附带用户选择（不用于展示主内容）。
+   * 存库时写入 envelope 的 wizardPayload 后应从副本中省略，避免重复。
+   */
+  requestSnapshot?: WizardInput;
   /** 旧版缓存可能没有 */
   tripDates?: { startDate: string; endDate: string };
   docHubs?: { label: string; url: string }[];
