@@ -24,7 +24,7 @@ import { ITINERARY_RESULT_STORAGE_KEY, WIZARD_PAYLOAD_STORAGE_KEY } from "@/lib/
 import { FREE_DEST_NOTES_MIN_LEN, NZ_OPEN_REGION_ID } from "@/lib/wizard-constants";
 import { orderRegionsForWizardIntent, regionSubgroupsForIntent } from "@/lib/wizard-region-order";
 
-type Step = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+type Step = 0 | 1 | 2 | 3 | 4;
 
 const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -152,7 +152,7 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
   }, [searchParams]);
 
   useEffect(() => {
-    if (step === 6 && !startDate) {
+    if (step === 1 && !startDate) {
       setStartDate(todayIsoPacificAuckland());
     }
   }, [step, startDate]);
@@ -163,7 +163,7 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
   }, [regionId, whereNotes]);
 
   useEffect(() => {
-    if (step !== 6 || !effectiveRegionId || !duration || !ISO_RE.test(startDate)) {
+    if (step !== 1 || !effectiveRegionId || !duration || !ISO_RE.test(startDate)) {
       return;
     }
     const region = getRegionById(effectiveRegionId);
@@ -235,15 +235,13 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
 
   const canNext = useMemo(() => {
     if (step === 0) {
-      return Boolean(regionId) || whereNotes.trim().length >= FREE_DEST_NOTES_MIN_LEN;
+      return Boolean(regionId);
     }
-    // 与界面顺序一致：天数 → 交通 → 人数 → 预算 → 风格 → 日期
-    if (step === 1) return Boolean(duration);
+    if (step === 1)
+      return Boolean(duration && startDate && ISO_RE.test(startDate));
     if (step === 2) return Boolean(mobility);
-    if (step === 3) return Boolean(partyType);
-    if (step === 4) return Boolean(budgetBand);
-    if (step === 5) return styleTags.length > 0;
-    if (step === 6) return Boolean(startDate && ISO_RE.test(startDate));
+    if (step === 3)
+      return Boolean(partyType && budgetBand && styleTags.length > 0);
     return true;
   }, [step, regionId, whereNotes, partyType, duration, mobility, budgetBand, styleTags, startDate]);
 
@@ -256,7 +254,7 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
   const goNext = () => {
     if (!canNext) return;
     setError(null);
-    setStep((s) => (s < 7 ? ((s + 1) as Step) : s));
+    setStep((s) => (s < 4 ? ((s + 1) as Step) : s));
   };
 
   const goPrev = () => {
@@ -268,6 +266,7 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
     const trimmed = whereNotes.trim();
     const eff = regionId ?? (trimmed.length >= FREE_DEST_NOTES_MIN_LEN ? NZ_OPEN_REGION_ID : null);
     if (!eff || !partyType || !duration || !mobility || !budgetBand) return null;
+    if (eff === NZ_OPEN_REGION_ID && trimmed.length < FREE_DEST_NOTES_MIN_LEN) return null;
     if (styleTags.length === 0) return null;
     if (!startDate || !ISO_RE.test(startDate)) return null;
     return {
@@ -515,109 +514,24 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
                 </div>
               </button>
             </div>
-            <div className="glass rounded-2xl p-4">
-              <p className="text-xs text-slate-600">{t.wizard.step0OptionalNotesHint}</p>
-              <textarea
-                id="where-notes-early"
-                value={whereNotes}
-                onChange={(e) => setWhereNotes(e.target.value)}
-                rows={2}
-                maxLength={1200}
-                placeholder={t.wizard.whereNotesPlaceholder}
-                className="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-inner placeholder:text-slate-400"
-              />
-            </div>
           </div>
         )}
 
         {step === 1 && (
-          <div className="mt-6 space-y-3">
+          <div className="mt-6 space-y-5">
             <p className="text-sm leading-relaxed text-slate-600">
               {intent === "local" ? t.wizard.durationStepHintLocal : t.wizard.durationStepHintVisitor}
             </p>
             <div className="grid gap-3">
-            {t.wizard.duration.map((o) => (
-              <ChoiceRow
-                key={o.id}
-                selected={duration === o.id}
-                label={o.label}
-                onClick={() => setDuration(o.id)}
-              />
-            ))}
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="mt-6 grid gap-3">
-            {t.wizard.mobility.map((o) => (
-              <button
-                key={o.id}
-                type="button"
-                onClick={() => setMobility(o.id)}
-                className={`rounded-2xl border px-4 py-4 text-left transition ${
-                  mobility === o.id
-                    ? "border-sky-500 bg-white shadow-lg shadow-sky-500/15 ring-2 ring-sky-200"
-                    : "glass border-white/60 hover:border-sky-200"
-                }`}
-              >
-                <p className="font-semibold text-slate-900">{o.label}</p>
-                <p className="mt-1 text-sm text-slate-600">{o.hint}</p>
-              </button>
-            ))}
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="mt-6 grid gap-3">
-            {t.wizard.party.map((o) => (
-              <ChoiceRow
-                key={o.id}
-                selected={partyType === o.id}
-                label={o.label}
-                onClick={() => setPartyType(o.id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="mt-6 grid gap-3">
-            {t.wizard.budget.map((o) => (
-              <ChoiceRow
-                key={o.id}
-                selected={budgetBand === o.id}
-                label={o.label}
-                onClick={() => setBudgetBand(o.id)}
-              />
-            ))}
-          </div>
-        )}
-
-        {step === 5 && (
-          <div className="mt-6">
-            <p className="text-sm text-slate-600">{t.wizard.styleHint}</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {STYLE_TAG_ORDER.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => toggleStyle(id)}
-                  className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
-                    styleTags.includes(id)
-                      ? "border-transparent bg-gradient-to-r from-sky-600 to-teal-600 text-white shadow-md"
-                      : "border-slate-200 bg-white/90 text-slate-800 hover:border-sky-300"
-                  }`}
-                >
-                  {styleLabels[id] ?? id}
-                </button>
+              {t.wizard.duration.map((o) => (
+                <ChoiceRow
+                  key={o.id}
+                  selected={duration === o.id}
+                  label={o.label}
+                  onClick={() => setDuration(o.id)}
+                />
               ))}
             </div>
-          </div>
-        )}
-
-        {step === 6 && (
-          <div className="mt-6 space-y-5">
             <p className="text-sm leading-relaxed text-slate-600">{t.wizard.dateHint}</p>
             <div className="glass rounded-2xl p-4">
               <label className="block text-sm font-semibold text-slate-800">
@@ -691,51 +605,136 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
           </div>
         )}
 
-        {step === 7 && (
-          <div className="glass mt-6 space-y-4 rounded-2xl p-5 text-sm text-slate-700">
-            <SummaryRow
-              label={t.wizard.summary.region}
-              value={
-                (() => {
-                  const r = effectiveRegionId ? getRegionById(effectiveRegionId) : undefined;
-                  return r ? regionTitle(r, locale) : undefined;
-                })()
-              }
-            />
-            {whereNotes.trim() ? (
-              <SummaryRow label={t.wizard.summary.whereNotes} value={whereNotes.trim()} />
-            ) : null}
-            <SummaryRow
-              label={t.wizard.summary.party}
-              value={t.wizard.party.find((p) => p.id === partyType)?.label}
-            />
-            <SummaryRow
-              label={t.wizard.summary.duration}
-              value={t.wizard.duration.find((d) => d.id === duration)?.label}
-            />
-            <SummaryRow
-              label={t.wizard.summary.mobility}
-              value={t.wizard.mobility.find((m) => m.id === mobility)?.label}
-            />
-            <SummaryRow
-              label={t.wizard.summary.budget}
-              value={t.wizard.budget.find((b) => b.id === budgetBand)?.label}
-            />
+        {step === 2 && (
+          <div className="mt-6 grid gap-3">
+            {t.wizard.mobility.map((o) => (
+              <button
+                key={o.id}
+                type="button"
+                onClick={() => setMobility(o.id)}
+                className={`rounded-2xl border px-4 py-4 text-left transition ${
+                  mobility === o.id
+                    ? "border-sky-500 bg-white shadow-lg shadow-sky-500/15 ring-2 ring-sky-200"
+                    : "glass border-white/60 hover:border-sky-200"
+                }`}
+              >
+                <p className="font-semibold text-slate-900">{o.label}</p>
+                <p className="mt-1 text-sm text-slate-600">{o.hint}</p>
+              </button>
+            ))}
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="mt-6 space-y-8">
+            <p className="text-sm leading-relaxed text-slate-600">{t.wizard.stepPreferencesIntro}</p>
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                {t.wizard.summary.styles}
-              </p>
-              <p className="mt-1 font-medium text-slate-900">
-                {styleTags.map((id) => styleLabels[id] ?? id).join(locale === "en" ? ", " : "、")}
-              </p>
+              <p className="text-sm font-semibold text-slate-900">{t.wizard.summary.party}</p>
+              <div className="mt-3 grid gap-3">
+                {t.wizard.party.map((o) => (
+                  <ChoiceRow
+                    key={o.id}
+                    selected={partyType === o.id}
+                    label={o.label}
+                    onClick={() => setPartyType(o.id)}
+                  />
+                ))}
+              </div>
             </div>
-            <SummaryRow label={t.wizard.summary.startDate} value={startDate || undefined} />
-            {tripPreview && duration ? (
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{t.wizard.summary.budget}</p>
+              <div className="mt-3 grid gap-3">
+                {t.wizard.budget.map((o) => (
+                  <ChoiceRow
+                    key={o.id}
+                    selected={budgetBand === o.id}
+                    label={o.label}
+                    onClick={() => setBudgetBand(o.id)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-slate-900">{t.wizard.summary.styles}</p>
+              <p className="mt-2 text-sm text-slate-600">{t.wizard.styleHint}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {STYLE_TAG_ORDER.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => toggleStyle(id)}
+                    className={`rounded-full border px-4 py-2 text-sm font-medium transition ${
+                      styleTags.includes(id)
+                        ? "border-transparent bg-gradient-to-r from-sky-600 to-teal-600 text-white shadow-md"
+                        : "border-slate-200 bg-white/90 text-slate-800 hover:border-sky-300"
+                    }`}
+                  >
+                    {styleLabels[id] ?? id}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {step === 4 && (
+          <div className="mt-6 space-y-5">
+            <div className="glass space-y-4 rounded-2xl p-5 text-sm text-slate-700">
               <SummaryRow
-                label={locale === "zh" ? "行程至" : "Through"}
-                value={tripPreview.end}
+                label={t.wizard.summary.region}
+                value={
+                  (() => {
+                    const r = effectiveRegionId ? getRegionById(effectiveRegionId) : undefined;
+                    return r ? regionTitle(r, locale) : undefined;
+                  })()
+                }
               />
-            ) : null}
+              <SummaryRow
+                label={t.wizard.summary.party}
+                value={t.wizard.party.find((p) => p.id === partyType)?.label}
+              />
+              <SummaryRow
+                label={t.wizard.summary.duration}
+                value={t.wizard.duration.find((d) => d.id === duration)?.label}
+              />
+              <SummaryRow
+                label={t.wizard.summary.mobility}
+                value={t.wizard.mobility.find((m) => m.id === mobility)?.label}
+              />
+              <SummaryRow
+                label={t.wizard.summary.budget}
+                value={t.wizard.budget.find((b) => b.id === budgetBand)?.label}
+              />
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  {t.wizard.summary.styles}
+                </p>
+                <p className="mt-1 font-medium text-slate-900">
+                  {styleTags.map((id) => styleLabels[id] ?? id).join(locale === "en" ? ", " : "、")}
+                </p>
+              </div>
+              <SummaryRow label={t.wizard.summary.startDate} value={startDate || undefined} />
+              {tripPreview && duration ? (
+                <SummaryRow
+                  label={locale === "zh" ? "行程至" : "Through"}
+                  value={tripPreview.end}
+                />
+              ) : null}
+            </div>
+
+            <div className="glass rounded-2xl p-4">
+              <p className="text-xs text-slate-600">{t.wizard.step0OptionalNotesHint}</p>
+              <textarea
+                id="where-notes-confirm"
+                value={whereNotes}
+                onChange={(e) => setWhereNotes(e.target.value)}
+                rows={3}
+                maxLength={1200}
+                placeholder={t.wizard.whereNotesPlaceholder}
+                className="mt-2 w-full resize-y rounded-xl border border-slate-200 bg-white/95 px-3 py-2 text-sm text-slate-900 shadow-inner placeholder:text-slate-400"
+              />
+            </div>
+
             <p className="text-xs text-slate-500">{t.wizard.confirmHint}</p>
           </div>
         )}
@@ -755,7 +754,7 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
           >
             {t.wizard.prev}
           </button>
-          {step < 7 ? (
+          {step < 4 ? (
             <button
               type="button"
               onClick={goNext}

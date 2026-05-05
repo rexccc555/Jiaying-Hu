@@ -45,10 +45,28 @@ export default async function HomePage({ params }: Props) {
           <h1 className="mt-5 max-w-4xl text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
             <span className="text-gradient">{t.home.heroTitle}</span>
           </h1>
-          <p className="mt-3 max-w-3xl text-xl font-semibold leading-snug text-sky-900/90 sm:text-2xl">
-            {t.home.heroProductLine}
-          </p>
+          {t.home.heroProductLine?.trim() ? (
+            <p className="mt-3 max-w-3xl text-xl font-semibold leading-snug text-sky-900/90 sm:text-2xl">
+              {t.home.heroProductLine}
+            </p>
+          ) : null}
           <p className="mt-4 max-w-3xl text-lg leading-relaxed text-slate-600 sm:text-xl">{t.home.heroSub}</p>
+          <p className="mt-3 max-w-3xl text-sm font-medium text-teal-800/95">{t.home.trustSignupNote}</p>
+
+          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+            <Link
+              href={`/${locale}/wizard`}
+              className="inline-flex justify-center rounded-full bg-sky-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-sky-900/15 transition hover:bg-sky-700"
+            >
+              {t.home.heroCtaGenerate}
+            </Link>
+            <Link
+              href="#sample-itineraries"
+              className="inline-flex justify-center rounded-full border border-slate-300 bg-white px-8 py-3.5 text-base font-semibold text-slate-900 shadow-sm transition hover:border-sky-400 hover:bg-sky-50"
+            >
+              {t.home.heroCtaSample}
+            </Link>
+          </div>
 
           <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-3">
             {HOME_HERO_STRIP.map((shot, i) => (
@@ -149,6 +167,42 @@ export default async function HomePage({ params }: Props) {
               >
                 <span className="mt-0.5 text-teal-600">✓</span>
                 <span>{b}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="glass rounded-3xl p-8 sm:p-10">
+          <h2 className="text-2xl font-bold text-slate-900">{t.home.audienceTitle}</h2>
+          <ul className="mt-6 grid gap-4 md:grid-cols-3">
+            {t.home.audienceCards.map((card) => (
+              <li
+                key={card.title}
+                className="rounded-2xl border border-slate-100 bg-white/95 p-5 shadow-sm transition hover:border-sky-200"
+              >
+                <p className="font-semibold text-slate-900">{card.title}</p>
+                <p className="mt-2 text-sm leading-relaxed text-slate-600">{card.body}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section id="sample-itineraries" className="scroll-mt-28 rounded-3xl border border-sky-100 bg-gradient-to-br from-white to-sky-50/80 p-8 shadow-sm sm:p-10">
+          <h2 className="text-2xl font-bold text-slate-900">{t.home.sampleTripsTitle}</h2>
+          <p className="mt-2 max-w-3xl text-sm text-slate-600">{t.home.sampleTripsSub}</p>
+          <ul className="mt-6 grid gap-4 md:grid-cols-3">
+            {t.home.sampleItineraries.map((s) => (
+              <li key={s.slug}>
+                <Link
+                  href={`/${locale}/sample/${s.slug}`}
+                  className="flex h-full flex-col rounded-2xl border border-white/80 bg-white/90 p-5 shadow-sm transition hover:border-sky-300 hover:shadow-md"
+                >
+                  <p className="font-semibold text-slate-900">{s.title}</p>
+                  <p className="mt-2 flex-1 text-sm text-slate-600">{s.subtitle}</p>
+                  <span className="mt-4 text-sm font-semibold text-sky-700">
+                    {t.home.sampleViewCta} →
+                  </span>
+                </Link>
               </li>
             ))}
           </ul>

@@ -12,13 +12,22 @@ export function SiteFooter({ locale }: { locale: AppLocale }) {
         <p>{t.footer.independenceLine}</p>
         <p>{t.footer.docNztaLine}</p>
         <p>{t.footer.mapsLine}</p>
-        <div className="flex flex-wrap gap-4">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}`}>
             {t.footer.home}
           </Link>
           <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/wizard`}>
             {t.footer.plan}
           </Link>
+          <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/guides`}>
+            {t.footer.guidesLink}
+          </Link>
+          <a
+            className="text-sky-800 hover:underline"
+            href={`mailto:${t.footer.contactEmail}`}
+          >
+            {t.footer.contactLine} {t.footer.contactEmail}
+          </a>
           <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/privacy`}>
             {t.footer.privacyLink}
           </Link>

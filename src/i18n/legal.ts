@@ -56,7 +56,7 @@ const privacyZh: LegalDoc = {
       heading: "您的权利与联系我们",
       paragraphs: [
         "在适用法律允许的范围内，您可请求查阅、更正或删除与您相关的个人信息。",
-        "如对本政策有疑问，请通过本站后续公布的联系方式与我们联系；若暂未单独公示邮箱，请通过您已知的产品反馈渠道留言。",
+        "如对本政策有疑问或行使相关权利，请发送邮件至 hello@takeadayoff.co.nz；我们会在合理期限内回复。",
       ],
     },
   ],
@@ -109,7 +109,7 @@ const privacyEn: LegalDoc = {
       heading: "Your rights & contact",
       paragraphs: [
         "Where applicable law provides rights of access, correction, or erasure, you may contact us to exercise them.",
-        "Questions about this policy: use contact details published on the Site when available, or any product feedback channel you already use.",
+        "Questions about this policy or requests to exercise your rights: email hello@takeadayoff.co.nz—we aim to respond within a reasonable time.",
       ],
     },
   ],
