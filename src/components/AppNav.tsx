@@ -16,7 +16,7 @@ export function AppNav() {
   const other: AppLocale = locale === "zh" ? "en" : "zh";
   const switchHref = `/${other}${subPath ? `/${subPath}` : ""}`;
   const isLocaleHome = parts.length === 1;
-  const planHref = isLocaleHome ? `/${locale}#pick-path` : `/${locale}/wizard?intent=visitor`;
+  const planHref = isLocaleHome ? `/${locale}#pick-path` : `/${locale}/wizard`;
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/50 bg-white/55 backdrop-blur-lg">
@@ -41,6 +41,12 @@ export function AppNav() {
             className="rounded-full px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-white/80 hover:text-sky-800"
           >
             {t.nav.home}
+          </Link>
+          <Link
+            href={`/${locale}/preview`}
+            className="inline-flex max-w-[42vw] shrink-0 truncate rounded-full px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-white/80 hover:text-sky-800 sm:max-w-none sm:px-3 sm:text-sm"
+          >
+            {t.nav.preview}
           </Link>
           <Link
             href={planHref}

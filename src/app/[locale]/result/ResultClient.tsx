@@ -729,7 +729,7 @@ export default function ResultClient({
             <div className="mt-4 space-y-3">
               <p className="text-sm text-slate-600">{t.result.adjustNoPayload}</p>
               <Link
-                href={`/${locale}/wizard?intent=visitor`}
+                href={`/${locale}/wizard`}
                 className="inline-flex rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-sky-800 hover:border-sky-300"
               >
                 {t.result.goWizard}

@@ -1,8 +1,16 @@
+import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
 import { HomeRegisterHint } from "@/components/HomeRegisterHint";
+import { RegionHeroThumb } from "@/components/RegionHeroThumb";
 import { SiteFooter } from "@/components/SiteFooter";
+import {
+  getHomeExampleImage,
+  HOME_ENTRY_LOCAL,
+  HOME_ENTRY_VISITOR,
+  HOME_HERO_STRIP,
+} from "@/data/marketing-images";
 import { getRegionsWithPois } from "@/data/regions";
 import { isAppLocale, type AppLocale } from "@/i18n/config";
 import { messages } from "@/i18n/messages";
@@ -42,14 +50,42 @@ export default async function HomePage({ params }: Props) {
           </p>
           <p className="mt-4 max-w-3xl text-lg leading-relaxed text-slate-600 sm:text-xl">{t.home.heroSub}</p>
 
+          <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-3">
+            {HOME_HERO_STRIP.map((shot, i) => (
+              <div
+                key={shot.src}
+                className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/60 shadow-sm sm:aspect-[5/3]"
+              >
+                <Image
+                  src={shot.src}
+                  alt={locale === "zh" ? shot.altZh : shot.altEn}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width:640px) 33vw, 280px"
+                  priority={i === 0}
+                />
+              </div>
+            ))}
+          </div>
+
           <p id="pick-path" className="mt-8 scroll-mt-32 text-sm font-medium text-slate-700">
             {t.home.entriesLead}
           </p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Link
               href={`/${locale}/wizard?intent=local`}
-              className="group glass rounded-3xl border border-white/70 p-8 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-xl"
+              className="group glass overflow-hidden rounded-3xl border border-white/70 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-xl"
             >
+              <div className="relative aspect-[21/9] w-full sm:aspect-[2/1]">
+                <Image
+                  src={HOME_ENTRY_LOCAL.src}
+                  alt={locale === "zh" ? HOME_ENTRY_LOCAL.altZh : HOME_ENTRY_LOCAL.altEn}
+                  fill
+                  className="object-cover transition duration-300 group-hover:scale-[1.02]"
+                  sizes="(max-width:768px) 100vw, 400px"
+                />
+              </div>
+              <div className="p-8 pt-6">
               <h2 className="text-xl font-bold text-slate-900">{t.home.entryLocalTitle}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.home.entryLocalSub}</p>
               <ul className="mt-4 list-inside list-disc space-y-1 text-sm text-slate-700">
@@ -60,11 +96,22 @@ export default async function HomePage({ params }: Props) {
               <span className="mt-6 inline-flex text-sm font-semibold text-sky-700 group-hover:underline">
                 {t.home.entryLocalCta}
               </span>
+              </div>
             </Link>
             <Link
               href={`/${locale}/wizard?intent=visitor`}
-              className="group glass rounded-3xl border border-sky-100/90 bg-gradient-to-br from-white/95 to-sky-50/80 p-8 shadow-md transition hover:-translate-y-0.5 hover:shadow-xl"
+              className="group glass overflow-hidden rounded-3xl border border-sky-100/90 bg-gradient-to-br from-white/95 to-sky-50/80 shadow-md transition hover:-translate-y-0.5 hover:shadow-xl"
             >
+              <div className="relative aspect-[21/9] w-full sm:aspect-[2/1]">
+                <Image
+                  src={HOME_ENTRY_VISITOR.src}
+                  alt={locale === "zh" ? HOME_ENTRY_VISITOR.altZh : HOME_ENTRY_VISITOR.altEn}
+                  fill
+                  className="object-cover transition duration-300 group-hover:scale-[1.02]"
+                  sizes="(max-width:768px) 100vw, 400px"
+                />
+              </div>
+              <div className="p-8 pt-6">
               <h2 className="text-xl font-bold text-slate-900">{t.home.entryVisitorTitle}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.home.entryVisitorSub}</p>
               <ul className="mt-4 list-inside list-disc space-y-1 text-sm text-slate-700">
@@ -75,6 +122,7 @@ export default async function HomePage({ params }: Props) {
               <span className="mt-6 inline-flex text-sm font-semibold text-sky-700 group-hover:underline">
                 {t.home.entryVisitorCta}
               </span>
+              </div>
             </Link>
           </div>
 
@@ -176,13 +224,23 @@ export default async function HomePage({ params }: Props) {
                 <li key={r.id}>
                   <Link
                     href={`/${locale}/wizard?intent=${scopeIntent}&region=${r.id}`}
-                    className="block rounded-2xl border border-slate-100 bg-white/90 p-4 shadow-sm transition hover:border-sky-200 hover:shadow-md"
+                    className="block overflow-hidden rounded-2xl border border-slate-100 bg-white/90 shadow-sm transition hover:border-sky-200 hover:shadow-md"
                   >
-                    <p className="font-semibold text-slate-900">{regionTitle(r, locale)}</p>
-                    <p className="mt-2 text-sm leading-relaxed text-slate-600">{regionBlurb(r, locale)}</p>
-                    <span className="mt-3 inline-block text-xs font-semibold text-sky-700">
-                      {locale === "zh" ? "用此区域开向导 →" : "Open planner with this area →"}
-                    </span>
+                    <div className="relative aspect-[16/9] w-full">
+                      <RegionHeroThumb
+                        regionId={r.id}
+                        locale={locale}
+                        className="absolute inset-0 h-full w-full"
+                        sizes="(max-width:640px) 100vw, (max-width:1024px) 45vw, 280px"
+                      />
+                    </div>
+                    <div className="p-4">
+                      <p className="font-semibold text-slate-900">{regionTitle(r, locale)}</p>
+                      <p className="mt-2 text-sm leading-relaxed text-slate-600">{regionBlurb(r, locale)}</p>
+                      <span className="mt-3 inline-block text-xs font-semibold text-sky-700">
+                        {locale === "zh" ? "用此区域开向导 →" : "Open planner with this area →"}
+                      </span>
+                    </div>
                   </Link>
                 </li>
               );
@@ -193,12 +251,24 @@ export default async function HomePage({ params }: Props) {
         <section>
           <h2 className="text-xl font-bold text-slate-900">{t.home.examplesTitle}</h2>
           <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            {t.home.examples.map((ex) => (
+            {t.home.examples.map((ex) => {
+              const shot = getHomeExampleImage(ex.slug) ?? HOME_HERO_STRIP[0];
+              return (
               <Link
                 key={ex.slug}
                 href={`/${locale}/wizard?intent=${intentForHomeDemo(ex.slug)}&demo=${ex.slug}`}
-                className="group glass flex flex-col rounded-3xl p-6 transition hover:-translate-y-0.5 hover:shadow-xl"
+                className="group glass flex flex-col overflow-hidden rounded-3xl transition hover:-translate-y-0.5 hover:shadow-xl"
               >
+                <div className="relative aspect-[16/9] w-full">
+                  <Image
+                    src={shot.src}
+                    alt={locale === "zh" ? shot.altZh : shot.altEn}
+                    fill
+                    className="object-cover transition duration-300 group-hover:scale-[1.02]"
+                    sizes="(max-width:640px) 100vw, 320px"
+                  />
+                </div>
+                <div className="flex flex-1 flex-col p-6">
                 <p className="text-lg font-semibold text-slate-900 group-hover:text-sky-800">{ex.title}</p>
                 <p className="mt-2 flex-1 text-sm text-slate-600">{ex.subtitle}</p>
                 <div className="mt-3 flex flex-wrap gap-1.5">
@@ -214,8 +284,10 @@ export default async function HomePage({ params }: Props) {
                 <span className="mt-4 inline-flex text-sm font-semibold text-sky-700">
                   {locale === "zh" ? "试用此模板 →" : "Use template →"}
                 </span>
+                </div>
               </Link>
-            ))}
+            );
+            })}
           </div>
         </section>
 

@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { RegionHeroThumb } from "@/components/RegionHeroThumb";
 import { getRegionById, getRegionsWithPois } from "@/data/regions";
 import type { WizardInput } from "@/lib/types";
 import { SiteFooter } from "@/components/SiteFooter";
@@ -469,14 +470,22 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
                           key={r.id}
                           type="button"
                           onClick={() => setRegionId((cur) => (cur === r.id ? null : r.id))}
-                          className={`rounded-2xl border px-4 py-4 text-left transition ${
+                          className={`flex w-full overflow-hidden rounded-2xl border text-left transition ${
                             regionId === r.id
                               ? "border-sky-500 bg-white shadow-lg shadow-sky-500/15 ring-2 ring-sky-200"
                               : "glass border-white/60 hover:border-sky-200"
                           }`}
                         >
-                          <p className="font-semibold text-slate-900">{regionTitle(r, locale)}</p>
-                          <p className="mt-1 text-sm leading-relaxed text-slate-600">{regionBlurb(r, locale)}</p>
+                          <RegionHeroThumb
+                            regionId={r.id}
+                            locale={locale}
+                            className="h-[5.5rem] w-[7.25rem] sm:h-auto sm:min-h-[6.75rem] sm:w-[9rem]"
+                            sizes="(max-width:640px) 116px, 144px"
+                          />
+                          <div className="flex min-w-0 flex-1 flex-col justify-center px-4 py-3 sm:py-4">
+                            <p className="font-semibold text-slate-900">{regionTitle(r, locale)}</p>
+                            <p className="mt-1 text-sm leading-relaxed text-slate-600">{regionBlurb(r, locale)}</p>
+                          </div>
                         </button>
                       );
                     })}
@@ -488,14 +497,22 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
               <button
                 type="button"
                 onClick={() => setRegionId((cur) => (cur === NZ_OPEN_REGION_ID ? null : NZ_OPEN_REGION_ID))}
-                className={`rounded-2xl border border-dashed px-4 py-4 text-left transition ${
+                className={`flex w-full overflow-hidden rounded-2xl border border-dashed text-left transition ${
                   regionId === NZ_OPEN_REGION_ID
                     ? "border-sky-500 bg-white shadow-lg shadow-sky-500/15 ring-2 ring-sky-200"
                     : "border-slate-200 bg-white/70 hover:border-sky-200"
                 }`}
               >
-                <p className="font-semibold text-slate-900">{t.wizard.nzOpenCardTitle}</p>
-                <p className="mt-1 text-sm text-slate-600">{t.wizard.nzOpenCardSub}</p>
+                <RegionHeroThumb
+                  regionId={NZ_OPEN_REGION_ID}
+                  locale={locale}
+                  className="h-[5.5rem] w-[7.25rem] sm:h-auto sm:min-h-[6.75rem] sm:w-[9rem]"
+                  sizes="(max-width:640px) 116px, 144px"
+                />
+                <div className="flex min-w-0 flex-1 flex-col justify-center px-4 py-3 sm:py-4">
+                  <p className="font-semibold text-slate-900">{t.wizard.nzOpenCardTitle}</p>
+                  <p className="mt-1 text-sm text-slate-600">{t.wizard.nzOpenCardSub}</p>
+                </div>
               </button>
             </div>
             <div className="glass rounded-2xl p-4">
