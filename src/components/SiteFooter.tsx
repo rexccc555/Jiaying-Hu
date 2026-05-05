@@ -16,9 +16,6 @@ export function SiteFooter({ locale }: { locale: AppLocale }) {
           <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}`}>
             {t.footer.home}
           </Link>
-          <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/preview`}>
-            {t.footer.previewLink}
-          </Link>
           <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/wizard`}>
             {t.footer.plan}
           </Link>

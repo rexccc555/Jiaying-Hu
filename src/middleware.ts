@@ -34,9 +34,7 @@ export function middleware(request: NextRequest) {
   }
 
   const url = request.nextUrl.clone();
-  /** 根路径先进介绍页，再由介绍页进入首页（见 src/app/page.tsx） */
-  url.pathname =
-    pathname === "/" ? `/${defaultLocale}/preview` : `/${defaultLocale}${pathname}`;
+  url.pathname = pathname === "/" ? `/${defaultLocale}` : `/${defaultLocale}${pathname}`;
   return NextResponse.redirect(url);
 }
 

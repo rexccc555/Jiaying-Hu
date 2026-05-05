@@ -26,7 +26,6 @@ const zh = {
   nav: {
     home: "首页",
     plan: "开始规划",
-    preview: "功能一览",
     langZh: "中文",
     langEn: "English",
     login: "登录",
@@ -88,7 +87,8 @@ const zh = {
     prefsSaved: "已保存",
     prefsErr: "保存失败，请重试。",
     sectionTrips: "已保存的行程",
-    tripsSub: "从结果页保存的行程；点击条目或「编辑」进入修改区，也可删除或再去规划追加保存。",
+    tripsSub:
+      "从结果页保存的行程；点击条目查看行程，点「编辑」才进入修改区；也可删除或再去规划追加保存。",
     tripsCountPrefix: "共",
     tripsEmpty: "还没有保存过行程。完成一次规划后，在结果页底部即可保存到账户。",
     tripListFallback: "已保存行程",
@@ -258,41 +258,6 @@ const zh = {
       pickHome: "先看首页两种入口 →",
       dismiss: "知道了",
     },
-  },
-  preview: {
-    metaTitle: "Take a Day Off · 新西兰行程",
-    metaDescription:
-      "先看功能要点，再进入首页选择本地或游客入口；亦可跳过直接去行程向导。",
-    title: "几分钟，拉起一条可执行的出游草案",
-    lead:
-      "天气按日期联动、NZTA 路况与 DOC 安全入口集中在一页；中英双语，可选保存行程。以下为能力摘要——接下来请进入首页选择更适合你的入口。",
-    ctaHomeHint: "进入首页后，先选「我住在新西兰」或「我来新西兰旅游」，再跟着向导填条件即可。",
-    features: [
-      {
-        title: "分步向导",
-        body: "从出发片区、天数、交通方式、预算到玩法偏好，几分钟内答完即可生成行程草案。",
-      },
-      {
-        title: "天气按出行日期联动",
-        body: "选定日期范围后拉取逐日预报；雨天备选思路可参与建议（仍以出发前实况为准）。",
-      },
-      {
-        title: "路况与安全入口",
-        body: "对齐 NZTA 路况与 DOC 安全信息的入口与摘要式说明，便于出发前核对。",
-      },
-      {
-        title: "中英双语",
-        body: "向导与结果页支持中文与英文；你在补充说明里写的内容会参与改写行程。",
-      },
-      {
-        title: "账户与保存",
-        body: "注册后可保存行程，换设备也能查看；后续「出发前提醒」等功能将逐步开放。",
-      },
-    ],
-    ctaHome: "进入首页",
-    ctaWizard: "跳过 · 打开行程向导",
-    imageCredit:
-      "页面配图来自 Unsplash，在 Unsplash License 下可免费使用（含商业场景）；不构成对具体景点的担保。",
   },
   wizard: {
     backHome: "返回首页",
@@ -566,7 +531,6 @@ const zh = {
     privacyLink: "隐私政策",
     termsLink: "用户条款",
     disclaimerLink: "免责声明",
-    previewLink: "功能一览",
   },
   styleTags: {
     nature: "自然",
@@ -594,7 +558,6 @@ const en = {
   nav: {
     home: "Home",
     plan: "Start planning",
-    preview: "What it does",
     langZh: "中文",
     langEn: "English",
     login: "Log in",
@@ -658,7 +621,7 @@ const en = {
     prefsErr: "Could not save—try again.",
     sectionTrips: "Saved itineraries",
     tripsSub:
-      "Saved from your last runs in the planner. Tap a row—or Edit—to jump to “tweak & regenerate”, delete a trip, or plan something new and save again.",
+      "Saved from your results page. Tap a row to view the itinerary; use Edit to jump to tweak & regenerate. Delete a trip or plan another and save again.",
     tripsCountPrefix: "Total",
     tripsEmpty: "No saved itineraries yet. Generate a plan, then save it from the bottom of the results page.",
     tripListFallback: "Saved itinerary",
@@ -828,42 +791,6 @@ const en = {
       pickHome: "View both paths on this page →",
       dismiss: "Got it",
     },
-  },
-  preview: {
-    metaTitle: "Take a Day Off · NZ trips",
-    metaDescription:
-      "See what the planner covers, then continue to home to pick locals vs visitors—or jump straight to the wizard.",
-    title: "A runnable draft itinerary in minutes",
-    lead:
-      "Weather tied to your dates, NZTA + DOC entry points on one flow, bilingual UI, optional saves. Skim the cards below, then head to home to choose your path.",
-    ctaHomeHint:
-      "On the next page, pick “I live in NZ” or “I’m visiting NZ”, then answer a few practical questions.",
-    features: [
-      {
-        title: "Guided wizard",
-        body: "Walk through starting area, dates, transport, budget, and vibe—then generate a draft itinerary in minutes.",
-      },
-      {
-        title: "Weather tied to your dates",
-        body: "We fetch per-day forecasts for your trip window; wet-day alternates can follow rain odds (always recheck before you go).",
-      },
-      {
-        title: "Roads & safety entry points",
-        body: "NZTA road context and DOC safety pointers are surfaced so you can double-check before departure.",
-      },
-      {
-        title: "English & Chinese",
-        body: "Switch languages in the flow; free-text notes steer stops and pacing in the generated plan.",
-      },
-      {
-        title: "Account & saves",
-        body: "Sign up to store itineraries across devices; gentle pre-trip reminders will roll out over time.",
-      },
-    ],
-    ctaHome: "Continue to home",
-    ctaWizard: "Skip · Open planner",
-    imageCredit:
-      "Photos are from Unsplash under the Unsplash License (free use including commercial). They are illustrative only—not endorsements of specific places.",
   },
   wizard: {
     backHome: "Back to home",
@@ -1144,7 +1071,6 @@ const en = {
     privacyLink: "Privacy Policy",
     termsLink: "Terms of Use",
     disclaimerLink: "Disclaimer",
-    previewLink: "What it does",
   },
   styleTags: {
     nature: "Nature",

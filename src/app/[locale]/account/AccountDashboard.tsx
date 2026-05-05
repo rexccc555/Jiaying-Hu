@@ -292,7 +292,7 @@ export function AccountDashboard({ locale, user: initialUser, showWelcome }: Pro
                 className="flex flex-col gap-3 py-4 first:pt-2 sm:flex-row sm:items-center sm:justify-between"
               >
                 <Link
-                  href={`/${locale}/saved/${trip.id}#adjust-trip`}
+                  href={`/${locale}/saved/${trip.id}`}
                   className="min-w-0 flex-1 rounded-xl py-1 outline-none ring-sky-500/0 transition hover:bg-slate-50 focus-visible:ring-2"
                 >
                   <p className="font-medium text-slate-900">{trip.listTitle}</p>

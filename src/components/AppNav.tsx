@@ -43,12 +43,6 @@ export function AppNav() {
             {t.nav.home}
           </Link>
           <Link
-            href={`/${locale}/preview`}
-            className="inline-flex max-w-[42vw] shrink-0 truncate rounded-full px-2 py-1.5 text-xs font-medium text-slate-700 hover:bg-white/80 hover:text-sky-800 sm:max-w-none sm:px-3 sm:text-sm"
-          >
-            {t.nav.preview}
-          </Link>
-          <Link
             href={planHref}
             className="rounded-full bg-sky-600 px-3 py-1.5 text-sm font-semibold text-white shadow-sm shadow-sky-700/25 transition hover:bg-sky-700"
           >
