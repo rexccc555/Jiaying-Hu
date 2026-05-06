@@ -151,6 +151,15 @@ export default function WizardClient({ locale }: { locale: AppLocale }) {
     }
   }, [searchParams]);
 
+  /** 下一步/上一步或从「选身份」进入主向导时滚到页顶，避免新一步内容仍停在旧滚动位置 */
+  useEffect(() => {
+    if (intent === "unset") return;
+    const id = requestAnimationFrame(() => {
+      window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [intent, step]);
+
   useEffect(() => {
     if (step === 1 && !startDate) {
       setStartDate(todayIsoPacificAuckland());

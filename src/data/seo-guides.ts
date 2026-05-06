@@ -138,13 +138,13 @@ export const GUIDES: Record<GuideSlug, GuideDoc> = {
     paragraphsZh: [
       "许多攻略长于「景点名录」，短于「同一天内车程与体力是否匹配」。本站向导先问你从哪个片区出发、停留几天、是否自驾，再生成按日历对齐的天气摘要与官方路况入口，减少「到了才发现封路或大雨」的信息差。",
       "中文界面下，你依然应核对英文为主的官方页面（DOC、NZTA、运营商）；我们在结果页尽量给出可点击的官方链接与简短摘要，方便出发前复核。",
-      "若你横跨北岛与南岛，请分段设置多日行程；每一次生成都会重新抓取预报。保存行程到账户前无需注册即可先试生成，满意后再注册保存（利于换设备查看）。",
+      "若你横跨北岛与南岛，请分段设置多日行程；每一次生成都会重新抓取预报。建议在结果页注册并将行程保存到账户，便于换设备查看与管理。",
       "我们不代办签证、保险与租车合同；行程安排仅为辅助参考，不能替代你对高风险活动的独立判断与现场遵守标志。",
     ],
     paragraphsEn: [
       "Bucket lists rarely answer “can I physically drive this loop today?” Our wizard asks hub, nights, and mobility first—then folds forecasts and NZTA/DOC entry points into each day.",
       "Even in Chinese UI, official operators often publish English-first updates—use our outbound links and verify yourself.",
-      "Split North/South loops into segments; each regenerate pulls fresh weather. Generate without an account; sign up when you save.",
+      "Split North/South loops into segments; each regenerate pulls fresh weather. Sign up on the results page to save itineraries to your account and access them on any device.",
       "We don’t handle visas, insurance, or rentals—plans are aids, not substitutes for your judgement or signage.",
     ],
     wizardQuery: "intent=visitor&region=christchurch-canterbury&duration=2d1n",

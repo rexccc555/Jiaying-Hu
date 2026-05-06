@@ -55,7 +55,7 @@ const zh = {
     securityNote:
       "密码以 bcrypt 存储。若忘记密码，目前需使用新邮箱重新注册或等待后续「找回密码」功能。",
     noAccount: "还没有账户？",
-    toRegister: "按引导：先规划再注册",
+    toRegister: "首页 · 注册与保存说明",
     toWizard: "打开向导规划行程",
     afterLoginHint: "登录后可前往「我的账户」查看行程摘要与邮件偏好。",
     rememberMeLabel: "保持登录（90 天内免重复登录，公共电脑请勿勾选）",
@@ -110,7 +110,6 @@ const zh = {
       "输入出发地、天数、是否自驾和偏好，几分钟生成带天气、路况、安全提醒和地图链接的可执行路线。",
     heroCtaGenerate: "马上生成我的路线",
     heroCtaSample: "看一个示例行程",
-    trustSignupNote: "无需注册，先生成行程；想保存到账户时再注册。",
     entriesLead: "选更符合你的入口——几秒后开始回答问题（不必先想好目的地）。",
     entryLocalTitle: "我住在新西兰",
     entryLocalSub: "不知道周末去哪？按天气、距离、是否开车，给你能直接出发的短途方案。",
@@ -284,9 +283,9 @@ const zh = {
     bottomNote: "出发前请以官方天气、NZTA 路况与 DOC 安全信息为准。完整免责说明见免责声明页。",
     registerHint: {
       badge: "注册与保存",
-      title: "无需注册即可生成；保存时再注册",
+      title: "生成后在结果页注册保存",
       lead:
-        "从右上角过来啦？请先点「马上生成我的路线」完成向导——无需账号。满意后在结果页底部「保存行程并注册」，再把路线存进账户。",
+        "从右上角过来啦？请先点「马上生成我的路线」完成向导；满意后在结果页底部使用「保存行程并注册」，把完整路线（含天气与链接）存进你的账户，换设备也能查看。",
       reminder:
         "后续我们会逐步上线「出发前提醒」：例如行程日期临近时，温柔地提醒你核对天气、路况与开放时间（可随时在邮件里退订）。",
       perk1: "保存后换设备也不怕丢",
@@ -624,7 +623,7 @@ const en = {
     securityNote:
       "Passwords are stored with bcrypt. Password reset isn’t available yet—use a new email to register again or wait for a recovery flow.",
     noAccount: "No account yet?",
-    toRegister: "Plan first, then sign up",
+    toRegister: "Home · saving & sign-up",
     toWizard: "Open the planner",
     afterLoginHint: "After signing in, visit My account for a snapshot of trips and email preferences.",
     rememberMeLabel: "Keep me signed in for 90 days (avoid on shared computers)",
@@ -680,7 +679,6 @@ const en = {
       "Tell us where you start, how many days, drive or not, and your vibe—get a runnable route with weather, road updates, DOC safety links, and map-ready stops.",
     heroCtaGenerate: "Build my route now",
     heroCtaSample: "See a sample itinerary",
-    trustSignupNote: "No account needed to generate—sign up when you save a trip.",
     entriesLead: "Pick the path that matches you—then answer a few practical questions (no need to pick stops yet).",
     entryLocalTitle: "I live in New Zealand",
     entryLocalSub:
@@ -858,9 +856,9 @@ const en = {
       "Always verify live weather, NZTA road conditions, and DOC safety information before you travel. Full disclaimer on the Disclaimer page.",
     registerHint: {
       badge: "Save when you’re ready",
-      title: "Generate without an account—sign up to save",
+      title: "Sign up after you generate",
       lead:
-        "You arrived via the account menu. Click Build my route, finish the planner, and generate—no login required. Like it? Use Save itinerary & sign-up at the bottom of the results page.",
+        "You arrived via the account menu. Click Build my route, finish the planner, and generate. Then use Save itinerary & sign-up at the bottom of the results page to store the full plan—including weather and links—to your account, available on any device.",
       reminder:
         "We’re building gentle pre-trip reminders (e.g. a few days before your dates—weather, roads, opening hours). You’ll be able to opt in or out anytime in email.",
       perk1: "No more losing a tab-full of plans",

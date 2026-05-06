@@ -53,9 +53,6 @@ export default async function HomePage({ params }: Props) {
           <p className="mt-4 max-w-3xl text-[15px] leading-[1.7] text-slate-600 sm:mt-4 sm:text-lg sm:leading-relaxed md:text-xl">
             {t.home.heroSub}
           </p>
-          <p className="mt-4 max-w-3xl rounded-2xl border border-teal-100/90 bg-gradient-to-br from-teal-50/90 to-sky-50/50 px-4 py-3 text-sm font-medium leading-relaxed text-teal-900/95 shadow-sm sm:mt-5 sm:px-4 sm:py-3.5">
-            {t.home.trustSignupNote}
-          </p>
 
           <div className="mt-8 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:flex-wrap sm:items-center">
             <Link
