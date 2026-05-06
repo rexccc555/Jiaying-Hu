@@ -31,18 +31,18 @@ export default async function HomePage({ params }: Props) {
   const regionsWithPois = getRegionsWithPois();
 
   return (
-    <main className="pb-6">
+    <main className="pb-[calc(1.5rem+env(safe-area-inset-bottom,0px))] sm:pb-6">
       <Suspense fallback={null}>
         <HomeRegisterHint locale={locale} />
       </Suspense>
-      <section className="relative overflow-hidden px-4 pb-16 pt-10 sm:pt-14">
+      <section className="relative overflow-hidden px-4 pb-14 pt-8 sm:pb-16 sm:pt-14">
         <div className="pointer-events-none absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A//www.w3.org/2000/svg%22%20width%3D%2240%22%20height%3D%2240%22%3E%3Cpath%20d%3D%22M0%2040h40%22%20fill%3D%22none%22%20stroke%3D%22%23ffffff22%22/%3E%3C/svg%3E')] opacity-40" />
         <div className="relative mx-auto max-w-6xl">
-          <p className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white/70 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-sky-900/80 shadow-sm">
+          <p className="inline-flex items-center gap-2 rounded-full border border-sky-200/80 bg-white/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wider text-sky-900/80 shadow-sm sm:px-3 sm:text-xs">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-500" />
             {t.home.heroKicker}
           </p>
-          <h1 className="mt-5 max-w-4xl text-4xl font-bold tracking-tight text-slate-900 sm:text-5xl">
+          <h1 className="mt-4 max-w-4xl text-[1.65rem] font-bold leading-snug tracking-tight text-slate-900 sm:mt-5 sm:text-4xl sm:leading-tight md:text-5xl">
             <span className="text-gradient">{t.home.heroTitle}</span>
           </h1>
           {t.home.heroProductLine?.trim() ? (
@@ -50,29 +50,33 @@ export default async function HomePage({ params }: Props) {
               {t.home.heroProductLine}
             </p>
           ) : null}
-          <p className="mt-4 max-w-3xl text-lg leading-relaxed text-slate-600 sm:text-xl">{t.home.heroSub}</p>
-          <p className="mt-3 max-w-3xl text-sm font-medium text-teal-800/95">{t.home.trustSignupNote}</p>
+          <p className="mt-4 max-w-3xl text-[15px] leading-[1.7] text-slate-600 sm:mt-4 sm:text-lg sm:leading-relaxed md:text-xl">
+            {t.home.heroSub}
+          </p>
+          <p className="mt-4 max-w-3xl rounded-2xl border border-teal-100/90 bg-gradient-to-br from-teal-50/90 to-sky-50/50 px-4 py-3 text-sm font-medium leading-relaxed text-teal-900/95 shadow-sm sm:mt-5 sm:px-4 sm:py-3.5">
+            {t.home.trustSignupNote}
+          </p>
 
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center">
+          <div className="mt-8 flex flex-col gap-3 sm:mt-7 sm:flex-row sm:flex-wrap sm:items-center">
             <Link
               href={`/${locale}/wizard`}
-              className="inline-flex justify-center rounded-full bg-sky-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-sky-900/15 transition hover:bg-sky-700"
+              className="inline-flex min-h-[3rem] items-center justify-center rounded-full bg-sky-600 px-8 py-3.5 text-base font-semibold text-white shadow-lg shadow-sky-900/15 transition active:scale-[0.99] hover:bg-sky-700 sm:min-h-0"
             >
               {t.home.heroCtaGenerate}
             </Link>
             <Link
               href="#sample-itineraries"
-              className="inline-flex justify-center rounded-full border border-slate-300 bg-white px-8 py-3.5 text-base font-semibold text-slate-900 shadow-sm transition hover:border-sky-400 hover:bg-sky-50"
+              className="inline-flex min-h-[3rem] items-center justify-center rounded-full border border-slate-300 bg-white px-8 py-3.5 text-base font-semibold text-slate-900 shadow-sm transition active:scale-[0.99] hover:border-sky-400 hover:bg-sky-50 sm:min-h-0"
             >
               {t.home.heroCtaSample}
             </Link>
           </div>
 
-          <div className="mt-8 grid grid-cols-3 gap-2 sm:gap-3">
+          <div className="mt-10 grid grid-cols-3 gap-3 sm:mt-9 sm:gap-3">
             {HOME_HERO_STRIP.map((shot, i) => (
               <div
                 key={shot.src}
-                className="relative aspect-[4/3] overflow-hidden rounded-2xl border border-white/60 shadow-sm sm:aspect-[5/3]"
+                className="relative aspect-[4/3] overflow-hidden rounded-xl border border-white/60 shadow-sm ring-1 ring-slate-900/[0.04] sm:aspect-[5/3] sm:rounded-2xl"
               >
                 <Image
                   src={shot.src}
@@ -86,10 +90,10 @@ export default async function HomePage({ params }: Props) {
             ))}
           </div>
 
-          <p id="pick-path" className="mt-8 scroll-mt-32 text-sm font-medium text-slate-700">
+          <p id="pick-path" className="mt-10 scroll-mt-36 text-sm font-medium leading-relaxed text-slate-700 sm:mt-12 sm:scroll-mt-32">
             {t.home.entriesLead}
           </p>
-          <div className="mt-4 grid gap-4 md:grid-cols-2">
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
             <Link
               href={`/${locale}/wizard?intent=local`}
               className="group glass overflow-hidden rounded-3xl border border-white/70 shadow-sm transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-xl"
@@ -103,7 +107,7 @@ export default async function HomePage({ params }: Props) {
                   sizes="(max-width:768px) 100vw, 400px"
                 />
               </div>
-              <div className="p-8 pt-6">
+              <div className="p-5 pt-5 sm:p-8 sm:pt-6">
               <h2 className="text-xl font-bold text-slate-900">{t.home.entryLocalTitle}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.home.entryLocalSub}</p>
               <ul className="mt-4 list-inside list-disc space-y-1 text-sm text-slate-700">
@@ -129,7 +133,7 @@ export default async function HomePage({ params }: Props) {
                   sizes="(max-width:768px) 100vw, 400px"
                 />
               </div>
-              <div className="p-8 pt-6">
+              <div className="p-5 pt-5 sm:p-8 sm:pt-6">
               <h2 className="text-xl font-bold text-slate-900">{t.home.entryVisitorTitle}</h2>
               <p className="mt-2 text-sm leading-relaxed text-slate-600">{t.home.entryVisitorSub}</p>
               <ul className="mt-4 list-inside list-disc space-y-1 text-sm text-slate-700">
@@ -144,11 +148,13 @@ export default async function HomePage({ params }: Props) {
             </Link>
           </div>
 
-          <dl className="mt-12 grid max-w-2xl grid-cols-3 gap-4 sm:max-w-none sm:grid-cols-3">
+          <dl className="mt-10 grid max-w-2xl grid-cols-3 gap-2 sm:mt-12 sm:max-w-none sm:gap-4">
             {t.home.stats.map((s) => (
-              <div key={s.label} className="glass rounded-2xl px-4 py-4 text-center">
-                <dt className="text-xs font-medium uppercase tracking-wide text-slate-500">{s.label}</dt>
-                <dd className="mt-1 text-2xl font-bold text-slate-900">{s.value}</dd>
+              <div key={s.label} className="glass rounded-2xl px-2.5 py-3 text-center sm:px-4 sm:py-4">
+                <dt className="text-[10px] font-medium uppercase leading-tight tracking-wide text-slate-500 sm:text-xs">
+                  {s.label}
+                </dt>
+                <dd className="mt-1 text-lg font-bold tabular-nums text-slate-900 sm:text-2xl">{s.value}</dd>
               </div>
             ))}
           </dl>
@@ -156,7 +162,7 @@ export default async function HomePage({ params }: Props) {
       </section>
 
       <div className="mx-auto max-w-6xl space-y-12 px-4">
-        <section className="glass rounded-3xl p-8 sm:p-10">
+        <section className="glass rounded-3xl p-6 sm:p-10">
           <h2 className="text-2xl font-bold text-slate-900">{t.home.trustTitle}</h2>
           <p className="mt-2 max-w-3xl text-slate-600">{t.home.trustLead}</p>
           <ul className="mt-6 grid gap-3 sm:grid-cols-2">
@@ -172,7 +178,7 @@ export default async function HomePage({ params }: Props) {
           </ul>
         </section>
 
-        <section className="glass rounded-3xl p-8 sm:p-10">
+        <section className="glass rounded-3xl p-6 sm:p-10">
           <h2 className="text-2xl font-bold text-slate-900">{t.home.audienceTitle}</h2>
           <ul className="mt-6 grid gap-4 md:grid-cols-3">
             {t.home.audienceCards.map((card) => (
@@ -187,7 +193,10 @@ export default async function HomePage({ params }: Props) {
           </ul>
         </section>
 
-        <section id="sample-itineraries" className="scroll-mt-28 rounded-3xl border border-sky-100 bg-gradient-to-br from-white to-sky-50/80 p-8 shadow-sm sm:p-10">
+        <section
+          id="sample-itineraries"
+          className="scroll-mt-28 rounded-3xl border border-sky-100 bg-gradient-to-br from-white to-sky-50/80 p-6 shadow-sm sm:p-10"
+        >
           <h2 className="text-2xl font-bold text-slate-900">{t.home.sampleTripsTitle}</h2>
           <p className="mt-2 max-w-3xl text-sm text-slate-600">{t.home.sampleTripsSub}</p>
           <ul className="mt-6 grid gap-4 md:grid-cols-3">

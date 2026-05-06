@@ -107,7 +107,7 @@ const zh = {
     heroTitle: "新西兰一日游 / 周末游 AI 行程规划器",
     heroProductLine: "",
     heroSub:
-      "输入出发地、天数、是否自驾和偏好，几分钟生成带天气、路况、安全提醒和地图链接的可执行路线。无需注册即可生成；保存行程时再注册即可。",
+      "输入出发地、天数、是否自驾和偏好，几分钟生成带天气、路况、安全提醒和地图链接的可执行路线。",
     heroCtaGenerate: "马上生成我的路线",
     heroCtaSample: "看一个示例行程",
     trustSignupNote: "无需注册，先生成行程；想保存到账户时再注册。",
@@ -677,7 +677,7 @@ const en = {
     heroTitle: "NZ day-trip & weekend AI trip planner",
     heroProductLine: "",
     heroSub:
-      "Tell us where you start, how many days, drive or not, and your vibe—get a runnable route with weather, road updates, DOC safety links, and map-ready stops. No sign-up to generate; create an account when you save.",
+      "Tell us where you start, how many days, drive or not, and your vibe—get a runnable route with weather, road updates, DOC safety links, and map-ready stops.",
     heroCtaGenerate: "Build my route now",
     heroCtaSample: "See a sample itinerary",
     trustSignupNote: "No account needed to generate—sign up when you save a trip.",
