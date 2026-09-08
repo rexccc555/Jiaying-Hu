@@ -60,6 +60,7 @@ export function XhsPublishClient({ locale }: Props) {
   const [step, setStep] = useState<"login" | "draft" | "preview" | "publish">("login");
   const [readyBanner, setReadyBanner] = useState<string | null>(null);
   const [readyOk, setReadyOk] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   const poller = useRef<ReturnType<typeof setInterval> | null>(null);
   const loginPoller = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -372,7 +373,30 @@ export function XhsPublishClient({ locale }: Props) {
                 >
                   {t.openLocalHelper}
                 </a>
-                <p className="text-xs leading-relaxed text-amber-900/90 sm:self-center">{t.startHint}</p>
+                <button
+                  type="button"
+                  className="inline-flex justify-center rounded-full border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100"
+                  onClick={async () => {
+                    const tagLine = tags
+                      .split(/[,，\s]+/)
+                      .map((x) => x.trim().replace(/^#/, ""))
+                      .filter(Boolean)
+                      .slice(0, 10)
+                      .map((x) => `#${x}`)
+                      .join(" ");
+                    const draft = `${title.trim().slice(0, 20)}\n\n${content.trim()}${tagLine ? `\n\n${tagLine}` : ""}`;
+                    try {
+                      await navigator.clipboard.writeText(draft);
+                      setCopied(true);
+                      window.setTimeout(() => setCopied(false), 2000);
+                    } catch {
+                      setActionHelp(draft);
+                    }
+                  }}
+                >
+                  {copied ? t.copiedDraft : t.copyDraft}
+                </button>
+                <p className="text-xs leading-relaxed text-amber-900/90 sm:basis-full">{t.startHint}</p>
               </div>
             ) : null}
           </div>

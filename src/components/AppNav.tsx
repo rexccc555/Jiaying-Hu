@@ -47,7 +47,7 @@ export function AppNav() {
           </Link>
           <Link
             href={`/${locale}/xhs`}
-            className="hidden whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-white/80 hover:text-sky-800 md:inline-flex"
+            className="whitespace-nowrap rounded-full px-2.5 py-2 text-xs font-semibold text-rose-800 hover:bg-rose-50 sm:px-3 sm:py-1.5 sm:text-sm sm:font-medium"
           >
             {t.nav.xhs}
           </Link>

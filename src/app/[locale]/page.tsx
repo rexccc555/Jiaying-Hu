@@ -67,6 +67,12 @@ export default async function HomePage({ params }: Props) {
             >
               {t.home.heroCtaSample}
             </Link>
+            <Link
+              href={`/${locale}/xhs`}
+              className="inline-flex min-h-[3rem] items-center justify-center rounded-full border border-rose-200 bg-rose-50 px-8 py-3.5 text-base font-semibold text-rose-900 shadow-sm transition active:scale-[0.99] hover:border-rose-300 hover:bg-rose-100 sm:min-h-0"
+            >
+              {t.home.heroCtaXhs}
+            </Link>
           </div>
 
           <div className="mt-10 grid grid-cols-3 gap-3 sm:mt-9 sm:gap-3">
