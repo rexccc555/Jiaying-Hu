@@ -1,18 +1,15 @@
-node_modules
-.next
-out
-.env
-.env.local
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+data/
+uploads/
+tmp/
 *.log
 .DS_Store
-prisma/dev.db
-prisma/dev.db-journal
-prisma/dev.local.db
-prisma/dev.local.db-journal
-# 误操作可能产生的嵌套目录 / 本地库文件
-prisma/prisma/
+Thumbs.db
 
-*.tsbuildinfo
-
-# Local Netlify folder
-.netlify
+# 暂时隐藏的旧站（takeadayoff），勿提交
+_archive_takeadayoff/
