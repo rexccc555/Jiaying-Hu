@@ -1,0 +1,35 @@
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String      @id @default(cuid())
+  email            String      @unique
+  passwordHash     String
+  /** 昵称；全局唯一由迁移中的 LOWER(TRIM(name)) 唯一索引保证（不区分大小写、忽略首尾空格） */
+  name             String
+  phone            String?
+  /** 可选：出发前/行程规划相关邮件提醒 */
+  planningReminderOptIn Boolean @default(false)
+  /** 可选：玩法简报、精选优惠等订阅类邮件 */
+  productNewsOptIn      Boolean @default(false)
+  createdAt        DateTime    @default(now())
+  savedTrips       SavedTrip[]
+}
+
+model SavedTrip {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  locale    String
+  payload   String
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}

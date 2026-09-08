@@ -1,0 +1,11 @@
+# Next.js on Netlify（官方插件负责 SSR / API 路由打包）
+# 不要在 Netlify 后台把「Publish directory」设成 .next；应留空，由本插件接管产物。
+[build]
+  # 构建阶段执行迁移（需在 Netlify 环境变量中配置 DATABASE_URL，指向 PostgreSQL）
+  command = "npx prisma migrate deploy && npm run build"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# Next.js API Route 默认超时偏短时，生成行程易 502；各套餐上限以 Netlify 文档为准。
+# 路由内已设 `export const maxDuration = 120`（见 src/app/api/generate/route.ts）。

@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+data/
+uploads/
+tmp/
+*.log
+.DS_Store
+Thumbs.db
+
+# 暂时隐藏的旧站（takeadayoff），勿提交
+_archive_takeadayoff/
