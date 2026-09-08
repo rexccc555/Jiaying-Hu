@@ -2,641 +2,122 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { SiteFooter } from "@/components/SiteFooter";
 import type { AppLocale } from "@/i18n/config";
 import { messages } from "@/i18n/messages";
+import { buildHelperPublishUrl, HELPER_ORIGIN } from "@/lib/xhs-draft";
 
-const DEFAULT_API = "http://127.0.0.1:1780";
 const HELPER_GITHUB = "https://github.com/rexccc555/Jiaying-Hu/tree/main/tools/cutpost";
 const HELPER_ZIP = "https://github.com/rexccc555/Jiaying-Hu/archive/refs/heads/main.zip";
 
 type Props = { locale: AppLocale };
 
-type Job = {
-  id: string;
-  status: string;
-  status_label?: string;
-  logs?: string[];
-  error?: string;
-};
-
-function errorText(data: unknown, fallback: string): string {
-  if (!data) return fallback;
-  if (typeof data === "string") return data;
-  if (typeof data === "object" && data) {
-    const o = data as { detail?: unknown; error?: string };
-    if (typeof o.error === "string") return o.error;
-    if (typeof o.detail === "string") return o.detail;
-    if (Array.isArray(o.detail) && o.detail[0] && typeof (o.detail[0] as { msg?: string }).msg === "string") {
-      return (o.detail[0] as { msg: string }).msg;
-    }
-  }
-  return fallback;
-}
-
 export function XhsPublishClient({ locale }: Props) {
   const t = messages[locale].xhs;
   const searchParams = useSearchParams();
-  const apiBase = useMemo(
-    () => (process.env.NEXT_PUBLIC_CUTPOST_API || DEFAULT_API).replace(/\/$/, ""),
-    [],
-  );
-
   const [online, setOnline] = useState<boolean | null>(null);
-  const [loginChip, setLoginChip] = useState<string>(t.loginUnknown);
-  const [loginHelp, setLoginHelp] = useState<string>(t.loginHelp);
-  const [loggedIn, setLoggedIn] = useState(false);
-  const [qr, setQr] = useState<string | null>(null);
-  const [files, setFiles] = useState<File[]>([]);
-  const [title, setTitle] = useState("");
-  const [content, setContent] = useState("");
-  const [tags, setTags] = useState(locale === "zh" ? "新西兰,一日游,周末去哪" : "NewZealand,daytrip");
-  const [adaptText, setAdaptText] = useState("");
-  const [actionHelp, setActionHelp] = useState<string>(t.actionHelp);
-  const [jobChip, setJobChip] = useState<string>(t.jobNone);
-  const [logs, setLogs] = useState<string>(t.logsEmpty);
-  const [jobId, setJobId] = useState<string | null>(null);
-  const [canPublish, setCanPublish] = useState(false);
-  const [previewBusy, setPreviewBusy] = useState(false);
-  const [step, setStep] = useState<"login" | "draft" | "preview" | "publish">("login");
-  const [readyBanner, setReadyBanner] = useState<string | null>(null);
-  const [readyOk, setReadyOk] = useState(false);
-  const [copied, setCopied] = useState(false);
+  const [checking, setChecking] = useState(false);
 
-  const poller = useRef<ReturnType<typeof setInterval> | null>(null);
-  const loginPoller = useRef<ReturnType<typeof setInterval> | null>(null);
-  const adaptTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const api = useCallback(
-    async (path: string, options?: RequestInit) => {
-      const res = await fetch(`${apiBase}${path}`, options);
-      const data = (await res.json().catch(() => ({}))) as unknown;
-      if (!res.ok) throw new Error(errorText(data, res.statusText));
-      return data as Record<string, unknown>;
-    },
-    [apiBase],
+  const draft = useMemo(
+    () => ({
+      title: searchParams.get("title") || "",
+      content: searchParams.get("content") || "",
+      tags:
+        searchParams.get("tags") ||
+        (locale === "zh" ? "新西兰,一日游,TakeADayOff" : "NewZealand,daytrip,TakeADayOff"),
+    }),
+    [locale, searchParams],
   );
 
-  const stopPoll = () => {
-    if (poller.current) {
-      clearInterval(poller.current);
-      poller.current = null;
-    }
-  };
-  const stopLoginPoll = () => {
-    if (loginPoller.current) {
-      clearInterval(loginPoller.current);
-      loginPoller.current = null;
-    }
-  };
+  const helperUrl = useMemo(() => buildHelperPublishUrl(draft), [draft]);
 
-  const refreshReady = useCallback(async () => {
+  const probe = useCallback(async () => {
+    setChecking(true);
     try {
-      const data = await api("/api/ready");
-      const issues = (data.issues as string[] | undefined) || [];
-      setOnline(true);
-      if (issues.length) {
-        setReadyOk(false);
-        setReadyBanner(issues.join(" "));
-      } else {
-        setReadyOk(true);
-        setReadyBanner(t.readyOk);
-      }
+      const ctrl = new AbortController();
+      const timer = window.setTimeout(() => ctrl.abort(), 1200);
+      const res = await fetch(`${HELPER_ORIGIN}/api/health`, {
+        signal: ctrl.signal,
+        mode: "cors",
+        cache: "no-store",
+      });
+      window.clearTimeout(timer);
+      setOnline(res.ok);
+      return res.ok;
     } catch {
       setOnline(false);
-      setReadyOk(false);
-      setReadyBanner(t.offlineBanner);
+      return false;
+    } finally {
+      setChecking(false);
     }
-  }, [api, t.offlineBanner, t.readyOk]);
-
-  const refreshStatus = useCallback(
-    async (force = true) => {
-      try {
-        const data = await api(`/api/status?force=${force ? "true" : "false"}`);
-        const xhs = (data.xiaohongshu || {}) as { logged_in?: boolean; error?: string };
-        if (xhs.error) {
-          setLoginChip(t.loginFail);
-          setLoginHelp(xhs.error);
-          return false;
-        }
-        const logged = Boolean(xhs.logged_in);
-        setLoggedIn(logged);
-        setLoginChip(logged ? t.loginOk : t.loginNo);
-        setLoginHelp(logged ? t.loginHelpOk : t.loginHelp);
-        if (logged) {
-          setQr(null);
-          stopLoginPoll();
-          if (!jobId) setStep("draft");
-        }
-        setOnline(true);
-        return logged;
-      } catch (err) {
-        setOnline(false);
-        setLoginChip(t.loginFail);
-        setLoginHelp(err instanceof Error ? err.message : t.offlineBanner);
-        return false;
-      }
-    },
-    [api, jobId, t],
-  );
+  }, []);
 
   useEffect(() => {
-    const preTitle = searchParams.get("title");
-    const preContent = searchParams.get("content");
-    const preTags = searchParams.get("tags");
-    if (preTitle) setTitle(preTitle.slice(0, 40));
-    if (preContent) setContent(preContent);
-    if (preTags) setTags(preTags);
-  }, [searchParams]);
+    void probe();
+  }, [probe]);
 
-  useEffect(() => {
-    void refreshReady();
-    void refreshStatus(true);
-    return () => {
-      stopPoll();
-      stopLoginPoll();
-      if (adaptTimer.current) clearTimeout(adaptTimer.current);
-    };
-  }, [refreshReady, refreshStatus]);
-
-  const titleCount = Array.from(title.trim()).length;
-
-  const refreshAdapt = useCallback(async () => {
-    if (!title.trim() && !content.trim()) {
-      setAdaptText("");
-      return;
+  const openHelper = async () => {
+    const ok = await probe();
+    window.open(helperUrl, "_blank", "noopener,noreferrer");
+    if (!ok) {
+      // HTTPS 站点常常测不到本机；仍打开本机地址，用户若已启动即可用
     }
-    const localTitle = title.trim().slice(0, 20);
-    const localTags = tags
-      .split(/[,，\s]+/)
-      .map((x) => x.trim().replace(/^#/, ""))
-      .filter(Boolean)
-      .slice(0, 10);
-    const localPreview = `${t.adaptTitle}${localTitle}\n${t.adaptTags}${localTags.map((x) => `#${x}`).join(" ") || t.adaptNone}`;
-    if (online === false) {
-      setAdaptText(localPreview);
-      return;
-    }
-    try {
-      const data = await api("/api/adapt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ title, content, tags }),
-      });
-      const xhs = (data.xiaohongshu || {}) as {
-        title?: string;
-        tags?: string[];
-        warnings?: string[];
-      };
-      const warn = (xhs.warnings || []).join("；");
-      setAdaptText(
-        `${t.adaptTitle}${xhs.title || localTitle}\n${t.adaptTags}${(xhs.tags || localTags).map((x) => `#${x}`).join(" ") || t.adaptNone}${warn ? `\n${warn}` : ""}`,
-      );
-    } catch {
-      setAdaptText(localPreview);
-    }
-  }, [api, content, online, t.adaptNone, t.adaptTags, t.adaptTitle, tags, title]);
-
-  const onCopyChange = () => {
-    if (adaptTimer.current) clearTimeout(adaptTimer.current);
-    adaptTimer.current = setTimeout(() => void refreshAdapt(), 250);
-  };
-
-  const classify = (list: FileList | File[]) => {
-    const images: File[] = [];
-    const videos: File[] = [];
-    const other: File[] = [];
-    Array.from(list || []).forEach((file) => {
-      const name = file.name.toLowerCase();
-      if (/\.(mp4|mov|m4v|avi|mkv)$/.test(name)) videos.push(file);
-      else if (/\.(jpe?g|png|webp|gif|bmp)$/.test(name)) images.push(file);
-      else other.push(file);
-    });
-    if (other.length) return { error: `${t.unsupported}${other.map((f) => f.name).join("、")}` };
-    if (videos.length && images.length) return { error: t.mixError };
-    if (videos.length > 1) return { error: t.oneVideo };
-    return { files: [...videos, ...images], error: null as string | null };
-  };
-
-  const setFilesSafe = (list: FileList | File[]) => {
-    const result = classify(list);
-    if (result.error) {
-      setActionHelp(result.error);
-      return;
-    }
-    setFiles(result.files || []);
-    if ((result.files || []).length) setStep(loggedIn ? "draft" : "login");
-  };
-
-  const startLogin = async () => {
-    setLoginHelp(t.loginOpening);
-    try {
-      const data = await api("/api/xhs/qrcode", { method: "POST" });
-      if (data.logged_in) {
-        setLoggedIn(true);
-        setLoginChip(t.loginOk);
-        setQr(null);
-        setLoginHelp((data.message as string) || t.loginHelpOk);
-        setStep("draft");
-        return;
-      }
-      if (typeof data.qrcode_data_url === "string") setQr(data.qrcode_data_url);
-      setLoginHelp((data.message as string) || t.loginScan);
-      stopLoginPoll();
-      let tries = 0;
-      loginPoller.current = setInterval(() => {
-        tries += 1;
-        void refreshStatus(true).then((logged) => {
-          if (logged || tries >= 24) {
-            stopLoginPoll();
-            if (!logged) setLoginHelp(t.loginStillWaiting);
-          }
-        });
-      }, 5000);
-    } catch (err) {
-      setLoginHelp(err instanceof Error ? err.message : t.offlineBanner);
-    }
-  };
-
-  const applyJob = (job: Job) => {
-    setJobChip(job.status_label || job.status);
-    setLogs((job.logs || []).join("\n") || job.error || "");
-    setCanPublish(job.status === "preview_ready");
-    if (job.status === "preview_ready") {
-      setStep("publish");
-      setActionHelp(t.previewReady);
-    } else if (job.status === "published") {
-      setStep("publish");
-      setActionHelp(t.published);
-    } else if (job.status === "not_logged_in") {
-      setStep("login");
-      setActionHelp(t.needLogin);
-    } else if (job.status === "failed") {
-      setActionHelp(job.error || t.failed);
-    } else if (job.status === "publishing") {
-      setStep("publish");
-      setActionHelp(t.publishing);
-    } else if (job.status === "running") {
-      setStep("preview");
-    }
-  };
-
-  const pollJob = async (id: string) => {
-    const job = (await api(`/api/jobs/${id}`)) as unknown as Job;
-    applyJob(job);
-    if (["queued", "running", "publishing"].includes(job.status)) return;
-    stopPoll();
-    setPreviewBusy(false);
-  };
-
-  const submitPreview = async () => {
-    if (!files.length) {
-      setActionHelp(t.needFiles);
-      return;
-    }
-    if (!title.trim() || !content.trim()) {
-      setActionHelp(t.needCopy);
-      return;
-    }
-    const form = new FormData();
-    form.append("title", title.trim());
-    form.append("content", content.trim());
-    form.append("tags", tags);
-    form.append("mode", "preview");
-    files.forEach((file) => form.append("files", file));
-    setPreviewBusy(true);
-    setCanPublish(false);
-    setStep("preview");
-    setActionHelp(t.previewing);
-    try {
-      const job = (await api("/api/jobs", { method: "POST", body: form })) as unknown as Job;
-      setJobId(job.id);
-      applyJob(job);
-      stopPoll();
-      poller.current = setInterval(() => {
-        void pollJob(job.id).catch(console.error);
-      }, 1500);
-    } catch (err) {
-      setActionHelp(err instanceof Error ? err.message : t.failed);
-      setPreviewBusy(false);
-    }
-  };
-
-  const submitPublish = async () => {
-    if (!jobId) {
-      setActionHelp(t.needPreviewFirst);
-      return;
-    }
-    if (!window.confirm(t.confirmPublish)) return;
-    setCanPublish(false);
-    try {
-      const job = (await api(`/api/jobs/${jobId}/confirm`, { method: "POST" })) as unknown as Job;
-      applyJob(job);
-      stopPoll();
-      poller.current = setInterval(() => {
-        void pollJob(job.id).catch(console.error);
-      }, 1500);
-    } catch (err) {
-      setActionHelp(err instanceof Error ? err.message : t.failed);
-      setCanPublish(true);
-    }
-  };
-
-  const copyDraftToClipboard = async () => {
-    const tagLine = tags
-      .split(/[,，\s]+/)
-      .map((x) => x.trim().replace(/^#/, ""))
-      .filter(Boolean)
-      .slice(0, 10)
-      .map((x) => `#${x}`)
-      .join(" ");
-    const draft = `${title.trim().slice(0, 20)}\n\n${content.trim()}${tagLine ? `\n\n${tagLine}` : ""}`;
-    try {
-      await navigator.clipboard.writeText(draft);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
-    } catch {
-      setActionHelp(draft);
-    }
-  };
-
-  const stepClass = (name: typeof step) => {
-    const order = ["login", "draft", "preview", "publish"] as const;
-    const cur = order.indexOf(step);
-    const mine = order.indexOf(name);
-    if (mine < cur) return "rounded-full bg-teal-100 px-3 py-1 text-xs font-semibold text-teal-900";
-    if (mine === cur) return "rounded-full bg-sky-600 px-3 py-1 text-xs font-semibold text-white";
-    return "rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500";
   };
 
   return (
     <main className="pb-16 pt-8">
-      <div className="mx-auto max-w-3xl px-4">
+      <div className="mx-auto max-w-xl px-4">
         <p className="text-xs font-semibold uppercase tracking-wider text-sky-800/80">{t.kicker}</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{t.title}</h1>
-        <p className="mt-3 text-sm leading-relaxed text-slate-600">{t.lede}</p>
+        <p className="mt-3 text-sm leading-relaxed text-slate-600">{t.ledeShort}</p>
 
-        <section className="mt-6 rounded-3xl border border-sky-100 bg-gradient-to-br from-white to-sky-50/80 p-5 shadow-sm sm:p-6">
-          <h2 className="text-base font-bold text-slate-900">{t.howTitle}</h2>
-          <ol className="mt-4 space-y-3 text-sm text-slate-700">
-            <li>
-              <p className="font-semibold text-slate-900">{t.how1Title}</p>
-              <p className="mt-1 text-slate-600">{t.how1Body}</p>
-            </li>
-            <li>
-              <p className="font-semibold text-slate-900">{t.how2Title}</p>
-              <p className="mt-1 text-slate-600">{t.how2Body}</p>
-            </li>
-            <li>
-              <p className="font-semibold text-slate-900">{t.how3Title}</p>
-              <p className="mt-1 text-slate-600">{t.how3Body}</p>
-            </li>
+        <button
+          type="button"
+          onClick={() => void openHelper()}
+          className="mt-8 flex w-full min-h-[3.25rem] items-center justify-center rounded-2xl bg-rose-600 px-6 py-4 text-base font-semibold text-white shadow-lg shadow-rose-900/15 transition hover:bg-rose-700"
+        >
+          {checking ? t.checking : t.launchPublish}
+        </button>
+        <p className="mt-2 text-center text-xs text-slate-500">
+          {online === true ? t.helperOnline : online === false ? t.helperOfflineHint : t.checking}
+        </p>
+
+        <section className="mt-8 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
+          <h2 className="text-sm font-bold text-slate-900">{t.setupTitle}</h2>
+          <ol className="mt-3 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-slate-700">
+            <li>{t.setup1}</li>
+            <li>{t.setup2}</li>
+            <li>{t.setup3}</li>
           </ol>
-          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <a
-              href={HELPER_GITHUB}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
-            >
-              {t.downloadHelper}
-            </a>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <a
               href={HELPER_ZIP}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex justify-center rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:border-sky-300 hover:bg-sky-50"
+              className="inline-flex flex-1 justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
             >
               {t.downloadZip}
             </a>
-            <button
-              type="button"
-              onClick={() => void copyDraftToClipboard()}
-              className="inline-flex justify-center rounded-full border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-900 hover:bg-rose-100"
-            >
-              {copied ? t.copiedDraft : t.copyDraft}
-            </button>
-          </div>
-          <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-white/80 p-3 text-xs leading-relaxed text-slate-600 ring-1 ring-slate-200/80">
-            {t.downloadStepsTitle}
-            {"\n"}
-            {t.downloadSteps}
-          </pre>
-        </section>
-
-        <div
-          className={`mt-6 rounded-2xl border px-4 py-3 text-sm ${
-            readyOk
-              ? "border-teal-200 bg-teal-50 text-teal-900"
-              : "border-amber-200 bg-amber-50 text-amber-950"
-          }`}
-        >
-          <p>{readyBanner || (online === null ? "…" : t.offlineBanner)}</p>
-          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-            <button
-              type="button"
-              onClick={() => {
-                void refreshReady();
-                void refreshStatus(true);
-              }}
-              className="inline-flex justify-center rounded-full border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100"
-            >
-              {t.reconnect}
-            </button>
             <a
-              href={apiBase}
+              href={HELPER_GITHUB}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex justify-center rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+              className="inline-flex flex-1 justify-center rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-50"
             >
-              {t.openLocalHelper}
+              {t.downloadHelper}
             </a>
-            <p className="text-xs leading-relaxed text-amber-900/90 sm:basis-full">{t.startHint}</p>
           </div>
-        </div>
-
-        <ol className="mt-6 flex flex-wrap gap-2">
-          <li className={stepClass("login")}>1 {t.stepLogin}</li>
-          <li className={stepClass("draft")}>2 {t.stepDraft}</li>
-          <li className={stepClass("preview")}>3 {t.stepPreview}</li>
-          <li className={stepClass("publish")}>4 {t.stepPublish}</li>
-        </ol>
-
-        <section className="mt-8 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-          <div className="mb-4">
-            <h2 className="text-lg font-bold text-slate-900">{t.copyTitle}</h2>
-            <p className="mt-1 text-xs text-slate-500">{t.how1Body}</p>
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <span className={`text-xs font-semibold ${titleCount > 20 ? "text-rose-600" : "text-slate-500"}`}>
-              {Math.min(titleCount, 20)} / 20
-            </span>
-            <button
-              type="button"
-              onClick={() => void copyDraftToClipboard()}
-              className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-900 hover:bg-rose-100"
-            >
-              {copied ? t.copiedDraft : t.copyDraft}
-            </button>
-          </div>
-          <label className="mt-3 block text-sm font-medium text-slate-800">
-            {t.labelTitle}
-            <input
-              value={title}
-              maxLength={40}
-              onChange={(e) => {
-                setTitle(e.target.value);
-                onCopyChange();
-              }}
-              placeholder={t.phTitle}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:ring-2"
-            />
-          </label>
-          <label className="mt-3 block text-sm font-medium text-slate-800">
-            {t.labelBody}
-            <textarea
-              value={content}
-              rows={5}
-              onChange={(e) => {
-                setContent(e.target.value);
-                onCopyChange();
-              }}
-              placeholder={t.phBody}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:ring-2"
-            />
-          </label>
-          <label className="mt-3 block text-sm font-medium text-slate-800">
-            {t.labelTags}
-            <input
-              value={tags}
-              onChange={(e) => {
-                setTags(e.target.value);
-                onCopyChange();
-              }}
-              placeholder={t.phTags}
-              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:ring-2"
-            />
-          </label>
-          {adaptText ? (
-            <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-xs text-slate-700">{adaptText}</pre>
-          ) : null}
+          <p className="mt-3 text-xs leading-relaxed text-slate-500">{t.setupFoot}</p>
         </section>
 
-        <div className="mt-10 border-t border-slate-200 pt-8">
-          <h2 className="text-lg font-bold text-slate-900">{t.helperSectionTitle}</h2>
-          <p className="mt-1 text-sm text-slate-600">{t.helperSectionSub}</p>
-        </div>
-
-        <section className="mt-6 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-bold text-slate-900">{t.loginTitle}</h2>
-            <span
-              className={`rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                loggedIn ? "bg-teal-100 text-teal-900" : "bg-slate-100 text-slate-600"
-              }`}
-            >
-              {loginChip}
-            </span>
-          </div>
-          <p className="mt-2 text-sm text-slate-600">{loginHelp}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void startLogin()}
-              disabled={online === false}
-              className="rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
-            >
-              {t.btnLogin}
-            </button>
-            <button
-              type="button"
-              onClick={() => void refreshStatus(true)}
-              disabled={online === false}
-              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-800 hover:border-sky-300 disabled:opacity-50"
-            >
-              {t.btnCheck}
-            </button>
-          </div>
-          {qr ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={qr} alt="QR" className="mt-4 max-w-[220px] rounded-xl border border-slate-200" />
-          ) : null}
-        </section>
-
-        <div className="mt-6">
-          <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-slate-900">{t.mediaTitle}</h2>
-            <p className="mt-1 text-xs text-slate-500">{t.mediaHint}</p>
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => {
-                e.preventDefault();
-                setFilesSafe(e.dataTransfer.files);
-              }}
-              className="mt-4 flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-sky-200 bg-sky-50/50 px-4 py-10 text-center transition hover:border-sky-400 disabled:opacity-50"
-              disabled={online === false}
-            >
-              <strong className="text-sm text-slate-900">{t.dropStrong}</strong>
-              <span className="mt-1 text-xs text-slate-500">{t.dropSpan}</span>
-            </button>
-            <input
-              ref={fileInputRef}
-              type="file"
-              multiple
-              accept="video/mp4,video/quicktime,image/jpeg,image/png,image/webp"
-              className="hidden"
-              onChange={(e) => e.target.files && setFilesSafe(e.target.files)}
-            />
-            <ul className="mt-3 space-y-1 text-sm text-slate-700">
-              {files.map((f) => (
-                <li key={`${f.name}-${f.size}`}>
-                  {f.name} · {(f.size / 1024 / 1024).toFixed(1)} MB
-                </li>
-              ))}
-            </ul>
-          </section>
-        </div>
-
-        <section className="mt-6 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h2 className="text-lg font-bold text-slate-900">{t.actionTitle}</h2>
-            <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-semibold text-slate-700">
-              {jobChip}
-            </span>
-          </div>
-          <p className="mt-2 text-sm text-slate-600">{actionHelp}</p>
-          <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              disabled={online === false || previewBusy}
-              onClick={() => void submitPreview()}
-              className="rounded-full bg-sky-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-sky-700 disabled:opacity-50"
-            >
-              {t.btnPreview}
-            </button>
-            <button
-              type="button"
-              disabled={!canPublish}
-              onClick={() => void submitPublish()}
-              className="rounded-full bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-40"
-            >
-              {t.btnPublish}
-            </button>
-          </div>
-          <details className="mt-4">
-            <summary className="cursor-pointer text-sm font-medium text-slate-700">{t.logsTitle}</summary>
-            <pre className="mt-2 max-h-48 overflow-auto rounded-xl bg-slate-950 p-3 text-xs text-slate-100">{logs}</pre>
-          </details>
-        </section>
-
-        <p className="mt-6 text-center text-xs text-slate-500">{t.foot}</p>
-        <p className="mt-4 text-center text-sm">
+        <p className="mt-8 text-center text-sm">
+          <Link href={`/${locale}/wizard`} className="font-semibold text-sky-700 hover:underline">
+            {t.goPlan}
+          </Link>
+          <span className="mx-2 text-slate-300">·</span>
           <Link href={`/${locale}`} className="font-semibold text-sky-700 hover:underline">
-            ← {t.backHome}
+            {t.backHome}
           </Link>
         </p>
       </div>

@@ -38,6 +38,7 @@ import {
   localizedWarningsForUi,
   localizedWeatherSummary,
 } from "@/lib/result-live-localization";
+import { ShareToXhsButton } from "@/components/ShareToXhsButton";
 import { safetyLinksForRegion } from "@/lib/safety-links";
 
 function isoToMonthDayParen(iso: string): string | null {
@@ -412,33 +413,7 @@ export default function ResultClient({
             </Link>
           )}
           <div className="flex flex-wrap items-center gap-2">
-            <Link
-              href={`/${locale}/xhs?${new URLSearchParams({
-                title: (data.itinerary.days[0]?.theme || t.result.title).slice(0, 40),
-                content: (() => {
-                  const budgetAssumptionCopy = localizedBudgetAssumption(
-                    data.itinerary.budgetBandEstimate.assumptions,
-                    locale,
-                  );
-                  const lines: string[] = [t.result.title];
-                  data.itinerary.days.slice(0, 2).forEach((d, idx) => {
-                    const dayNum = idx + 1;
-                    lines.push(
-                      `${t.result.dayPrefix} ${dayNum}${locale === "zh" ? ` ${t.result.daySuffix}` : ""} · ${displayDayTheme(d, dayNum, locale, t.result.dayThemeNeutral)}`,
-                    );
-                    d.blocks.slice(0, 3).forEach((b) => {
-                      lines.push(`· ${displayBlockTitle(b, locale)}`);
-                    });
-                  });
-                  if (budgetAssumptionCopy) lines.push(budgetAssumptionCopy);
-                  return lines.join("\n").slice(0, 800);
-                })(),
-                tags: locale === "zh" ? "新西兰,一日游,TakeADayOff" : "NewZealand,daytrip,TakeADayOff",
-              }).toString()}`}
-              className="rounded-full border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800 shadow-sm hover:border-rose-300"
-            >
-              {t.result.shareXhs}
-            </Link>
+            <ShareToXhsButton locale={locale} data={data} />
             <button
               type="button"
               onClick={copyText}

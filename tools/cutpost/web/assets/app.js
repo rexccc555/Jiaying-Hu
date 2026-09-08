@@ -316,7 +316,28 @@ $("btn-check").addEventListener("click", () => refreshStatus(true));
 $("btn-preview").addEventListener("click", () => submit("preview"));
 $("btn-publish").addEventListener("click", () => submit("publish"));
 
+function applyQueryDraft() {
+  const q = new URLSearchParams(window.location.search);
+  const title = q.get("title");
+  const content = q.get("content");
+  const tags = q.get("tags");
+  if (!title && !content && !tags) return;
+  if (title) $("title").value = title.slice(0, 40);
+  if (content) $("content").value = content;
+  if (tags) $("tags").value = tags;
+  titleCount();
+  refreshAdapt();
+  setStep("draft");
+  $("action-help").textContent =
+    "文案已从 Take a Day Off 带过来。放上成片，登录后点预览即可。";
+}
+
 refreshReady();
 setStep("login");
 titleCount();
 updatePublishButton(false);
+applyQueryDraft();
+void refreshStatus(false).then((logged) => {
+  const q = new URLSearchParams(window.location.search);
+  if ((q.get("title") || q.get("content")) && logged) setStep("draft");
+});
