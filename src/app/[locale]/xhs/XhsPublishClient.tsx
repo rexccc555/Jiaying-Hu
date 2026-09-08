@@ -8,6 +8,8 @@ import type { AppLocale } from "@/i18n/config";
 import { messages } from "@/i18n/messages";
 
 const DEFAULT_API = "http://127.0.0.1:1780";
+const HELPER_GITHUB = "https://github.com/rexccc555/Jiaying-Hu/tree/main/tools/cutpost";
+const HELPER_ZIP = "https://github.com/rexccc555/Jiaying-Hu/archive/refs/heads/main.zip";
 
 type Props = { locale: AppLocale };
 
@@ -166,6 +168,17 @@ export function XhsPublishClient({ locale }: Props) {
       setAdaptText("");
       return;
     }
+    const localTitle = title.trim().slice(0, 20);
+    const localTags = tags
+      .split(/[,，\s]+/)
+      .map((x) => x.trim().replace(/^#/, ""))
+      .filter(Boolean)
+      .slice(0, 10);
+    const localPreview = `${t.adaptTitle}${localTitle}\n${t.adaptTags}${localTags.map((x) => `#${x}`).join(" ") || t.adaptNone}`;
+    if (online === false) {
+      setAdaptText(localPreview);
+      return;
+    }
     try {
       const data = await api("/api/adapt", {
         method: "POST",
@@ -179,12 +192,12 @@ export function XhsPublishClient({ locale }: Props) {
       };
       const warn = (xhs.warnings || []).join("；");
       setAdaptText(
-        `${t.adaptTitle}${xhs.title || ""}\n${t.adaptTags}${(xhs.tags || []).map((x) => `#${x}`).join(" ") || t.adaptNone}${warn ? `\n${warn}` : ""}`,
+        `${t.adaptTitle}${xhs.title || localTitle}\n${t.adaptTags}${(xhs.tags || localTags).map((x) => `#${x}`).join(" ") || t.adaptNone}${warn ? `\n${warn}` : ""}`,
       );
     } catch {
-      setAdaptText("");
+      setAdaptText(localPreview);
     }
-  }, [api, content, t.adaptNone, t.adaptTags, t.adaptTitle, tags, title]);
+  }, [api, content, online, t.adaptNone, t.adaptTags, t.adaptTitle, tags, title]);
 
   const onCopyChange = () => {
     if (adaptTimer.current) clearTimeout(adaptTimer.current);
@@ -331,6 +344,24 @@ export function XhsPublishClient({ locale }: Props) {
     }
   };
 
+  const copyDraftToClipboard = async () => {
+    const tagLine = tags
+      .split(/[,，\s]+/)
+      .map((x) => x.trim().replace(/^#/, ""))
+      .filter(Boolean)
+      .slice(0, 10)
+      .map((x) => `#${x}`)
+      .join(" ");
+    const draft = `${title.trim().slice(0, 20)}\n\n${content.trim()}${tagLine ? `\n\n${tagLine}` : ""}`;
+    try {
+      await navigator.clipboard.writeText(draft);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setActionHelp(draft);
+    }
+  };
+
   const stepClass = (name: typeof step) => {
     const order = ["login", "draft", "preview", "publish"] as const;
     const cur = order.indexOf(step);
@@ -347,6 +378,85 @@ export function XhsPublishClient({ locale }: Props) {
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{t.title}</h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">{t.lede}</p>
 
+        <section className="mt-6 rounded-3xl border border-sky-100 bg-gradient-to-br from-white to-sky-50/80 p-5 shadow-sm sm:p-6">
+          <h2 className="text-base font-bold text-slate-900">{t.howTitle}</h2>
+          <ol className="mt-4 space-y-3 text-sm text-slate-700">
+            <li>
+              <p className="font-semibold text-slate-900">{t.how1Title}</p>
+              <p className="mt-1 text-slate-600">{t.how1Body}</p>
+            </li>
+            <li>
+              <p className="font-semibold text-slate-900">{t.how2Title}</p>
+              <p className="mt-1 text-slate-600">{t.how2Body}</p>
+            </li>
+            <li>
+              <p className="font-semibold text-slate-900">{t.how3Title}</p>
+              <p className="mt-1 text-slate-600">{t.how3Body}</p>
+            </li>
+          </ol>
+          <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <a
+              href={HELPER_GITHUB}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex justify-center rounded-full bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-800"
+            >
+              {t.downloadHelper}
+            </a>
+            <a
+              href={HELPER_ZIP}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex justify-center rounded-full border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:border-sky-300 hover:bg-sky-50"
+            >
+              {t.downloadZip}
+            </a>
+            <button
+              type="button"
+              onClick={() => void copyDraftToClipboard()}
+              className="inline-flex justify-center rounded-full border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-900 hover:bg-rose-100"
+            >
+              {copied ? t.copiedDraft : t.copyDraft}
+            </button>
+          </div>
+          <pre className="mt-4 whitespace-pre-wrap rounded-2xl bg-white/80 p-3 text-xs leading-relaxed text-slate-600 ring-1 ring-slate-200/80">
+            {t.downloadStepsTitle}
+            {"\n"}
+            {t.downloadSteps}
+          </pre>
+        </section>
+
+        <div
+          className={`mt-6 rounded-2xl border px-4 py-3 text-sm ${
+            readyOk
+              ? "border-teal-200 bg-teal-50 text-teal-900"
+              : "border-amber-200 bg-amber-50 text-amber-950"
+          }`}
+        >
+          <p>{readyBanner || (online === null ? "…" : t.offlineBanner)}</p>
+          <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+            <button
+              type="button"
+              onClick={() => {
+                void refreshReady();
+                void refreshStatus(true);
+              }}
+              className="inline-flex justify-center rounded-full border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100"
+            >
+              {t.reconnect}
+            </button>
+            <a
+              href={apiBase}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex justify-center rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
+            >
+              {t.openLocalHelper}
+            </a>
+            <p className="text-xs leading-relaxed text-amber-900/90 sm:basis-full">{t.startHint}</p>
+          </div>
+        </div>
+
         <ol className="mt-6 flex flex-wrap gap-2">
           <li className={stepClass("login")}>1 {t.stepLogin}</li>
           <li className={stepClass("draft")}>2 {t.stepDraft}</li>
@@ -354,55 +464,72 @@ export function XhsPublishClient({ locale }: Props) {
           <li className={stepClass("publish")}>4 {t.stepPublish}</li>
         </ol>
 
-        {readyBanner ? (
-          <div
-            className={`mt-6 rounded-2xl border px-4 py-3 text-sm ${
-              readyOk
-                ? "border-teal-200 bg-teal-50 text-teal-900"
-                : "border-amber-200 bg-amber-50 text-amber-950"
-            }`}
-          >
-            <p>{readyBanner}</p>
-            {online === false ? (
-              <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                <a
-                  href={apiBase}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex justify-center rounded-full bg-sky-600 px-4 py-2 text-sm font-semibold text-white hover:bg-sky-700"
-                >
-                  {t.openLocalHelper}
-                </a>
-                <button
-                  type="button"
-                  className="inline-flex justify-center rounded-full border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-950 hover:bg-amber-100"
-                  onClick={async () => {
-                    const tagLine = tags
-                      .split(/[,，\s]+/)
-                      .map((x) => x.trim().replace(/^#/, ""))
-                      .filter(Boolean)
-                      .slice(0, 10)
-                      .map((x) => `#${x}`)
-                      .join(" ");
-                    const draft = `${title.trim().slice(0, 20)}\n\n${content.trim()}${tagLine ? `\n\n${tagLine}` : ""}`;
-                    try {
-                      await navigator.clipboard.writeText(draft);
-                      setCopied(true);
-                      window.setTimeout(() => setCopied(false), 2000);
-                    } catch {
-                      setActionHelp(draft);
-                    }
-                  }}
-                >
-                  {copied ? t.copiedDraft : t.copyDraft}
-                </button>
-                <p className="text-xs leading-relaxed text-amber-900/90 sm:basis-full">{t.startHint}</p>
-              </div>
-            ) : null}
-          </div>
-        ) : null}
-
         <section className="mt-8 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
+          <div className="mb-4">
+            <h2 className="text-lg font-bold text-slate-900">{t.copyTitle}</h2>
+            <p className="mt-1 text-xs text-slate-500">{t.how1Body}</p>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span className={`text-xs font-semibold ${titleCount > 20 ? "text-rose-600" : "text-slate-500"}`}>
+              {Math.min(titleCount, 20)} / 20
+            </span>
+            <button
+              type="button"
+              onClick={() => void copyDraftToClipboard()}
+              className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-900 hover:bg-rose-100"
+            >
+              {copied ? t.copiedDraft : t.copyDraft}
+            </button>
+          </div>
+          <label className="mt-3 block text-sm font-medium text-slate-800">
+            {t.labelTitle}
+            <input
+              value={title}
+              maxLength={40}
+              onChange={(e) => {
+                setTitle(e.target.value);
+                onCopyChange();
+              }}
+              placeholder={t.phTitle}
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:ring-2"
+            />
+          </label>
+          <label className="mt-3 block text-sm font-medium text-slate-800">
+            {t.labelBody}
+            <textarea
+              value={content}
+              rows={5}
+              onChange={(e) => {
+                setContent(e.target.value);
+                onCopyChange();
+              }}
+              placeholder={t.phBody}
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:ring-2"
+            />
+          </label>
+          <label className="mt-3 block text-sm font-medium text-slate-800">
+            {t.labelTags}
+            <input
+              value={tags}
+              onChange={(e) => {
+                setTags(e.target.value);
+                onCopyChange();
+              }}
+              placeholder={t.phTags}
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:ring-2"
+            />
+          </label>
+          {adaptText ? (
+            <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-xs text-slate-700">{adaptText}</pre>
+          ) : null}
+        </section>
+
+        <div className="mt-10 border-t border-slate-200 pt-8">
+          <h2 className="text-lg font-bold text-slate-900">{t.helperSectionTitle}</h2>
+          <p className="mt-1 text-sm text-slate-600">{t.helperSectionSub}</p>
+        </div>
+
+        <section className="mt-6 rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="text-lg font-bold text-slate-900">{t.loginTitle}</h2>
             <span
@@ -438,7 +565,7 @@ export function XhsPublishClient({ locale }: Props) {
           ) : null}
         </section>
 
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <div className="mt-6">
           <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
             <h2 className="text-lg font-bold text-slate-900">{t.mediaTitle}</h2>
             <p className="mt-1 text-xs text-slate-500">{t.mediaHint}</p>
@@ -450,7 +577,8 @@ export function XhsPublishClient({ locale }: Props) {
                 e.preventDefault();
                 setFilesSafe(e.dataTransfer.files);
               }}
-              className="mt-4 flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-sky-200 bg-sky-50/50 px-4 py-10 text-center transition hover:border-sky-400"
+              className="mt-4 flex w-full flex-col items-center justify-center rounded-2xl border-2 border-dashed border-sky-200 bg-sky-50/50 px-4 py-10 text-center transition hover:border-sky-400 disabled:opacity-50"
+              disabled={online === false}
             >
               <strong className="text-sm text-slate-900">{t.dropStrong}</strong>
               <span className="mt-1 text-xs text-slate-500">{t.dropSpan}</span>
@@ -470,56 +598,6 @@ export function XhsPublishClient({ locale }: Props) {
                 </li>
               ))}
             </ul>
-          </section>
-
-          <section className="rounded-3xl border border-slate-200 bg-white/90 p-6 shadow-sm">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="text-lg font-bold text-slate-900">{t.copyTitle}</h2>
-              <span className={`text-xs font-semibold ${titleCount > 20 ? "text-rose-600" : "text-slate-500"}`}>
-                {Math.min(titleCount, 20)} / 20
-              </span>
-            </div>
-            <label className="mt-3 block text-sm font-medium text-slate-800">
-              {t.labelTitle}
-              <input
-                value={title}
-                maxLength={40}
-                onChange={(e) => {
-                  setTitle(e.target.value);
-                  onCopyChange();
-                }}
-                placeholder={t.phTitle}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:ring-2"
-              />
-            </label>
-            <label className="mt-3 block text-sm font-medium text-slate-800">
-              {t.labelBody}
-              <textarea
-                value={content}
-                rows={5}
-                onChange={(e) => {
-                  setContent(e.target.value);
-                  onCopyChange();
-                }}
-                placeholder={t.phBody}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:ring-2"
-              />
-            </label>
-            <label className="mt-3 block text-sm font-medium text-slate-800">
-              {t.labelTags}
-              <input
-                value={tags}
-                onChange={(e) => {
-                  setTags(e.target.value);
-                  onCopyChange();
-                }}
-                placeholder={t.phTags}
-                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm outline-none ring-sky-500/30 focus:ring-2"
-              />
-            </label>
-            {adaptText ? (
-              <pre className="mt-3 whitespace-pre-wrap rounded-xl bg-slate-50 p-3 text-xs text-slate-700">{adaptText}</pre>
-            ) : null}
           </section>
         </div>
 

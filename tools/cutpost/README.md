@@ -1,13 +1,20 @@
 # Take a Day Off · 小红书本机助手
 
-此目录是 **CutPost**，已接入主站页面：`/[locale]/xhs`。
+给试用者：**网站写稿 +（可选）本机助手自动填表发布**。
 
-## 怎么用
+## 给别人怎么用
 
-1. 双击本目录 `start.bat`（保持黑窗口不要关）
-2. 打开网站 `https://takeadayoff.co.nz/zh/xhs`，或本机助手 `http://127.0.0.1:1780`
-3. 扫码登录 → 上传成片 → 预览 → 确认发布
+1. 打开网站 https://takeadayoff.co.nz/zh/xhs  
+2. 先在网页写标题/正文，可「复制」后自己去小红书粘贴  
+3. 若要自动填创作者后台：  
+   - 下载本仓库，进入 `tools/cutpost`  
+   - 或打开 https://github.com/rexccc555/Jiaying-Hu/tree/main/tools/cutpost  
+   - 安装 Python 3.10+、Google Chrome  
+   - 双击 `start.bat`（黑窗口不要关）  
+   - 回到网站点「重新检测」，或直接用 http://127.0.0.1:1780  
 
-> 线上 HTTPS 页面有时无法直接调用本机 HTTP 接口（浏览器混合内容限制）。若站内页显示「连不上本机助手」，请直接打开 `http://127.0.0.1:1780` 使用同一套流程。
+## 注意
 
-主站（Next.js / Netlify）负责行程规划；本助手只在你电脑上操作小红书创作者后台。
+- 登录态只在自己电脑，不要把 `data/` 发给别人。  
+- 线上 HTTPS 有时调不到本机 HTTP：请用本机助手页。  
+- 确认发布会真实发出，账号风险自负。
