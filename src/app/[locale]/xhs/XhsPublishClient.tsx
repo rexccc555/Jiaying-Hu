@@ -38,7 +38,6 @@ export function XhsPublishClient({ locale }: Props) {
   const [jobStatusCode, setJobStatusCode] = useState<string | null>(null);
   const [jobLogs, setJobLogs] = useState<string>("");
   const [publishing, setPublishing] = useState(false);
-  const [loginRequired, setLoginRequired] = useState(false);
 
   const tripSummaryFromQuery = useMemo(() => {
     return {
@@ -51,14 +50,8 @@ export function XhsPublishClient({ locale }: Props) {
   const refreshBound = useCallback(async () => {
     try {
       const res = await fetch("/api/xhs/bind", { credentials: "include" });
-      if (res.status === 401) {
-        setLoginRequired(true);
-        setBound(false);
-        return;
-      }
       const data = (await res.json()) as { bound?: boolean };
       setBound(Boolean(data.bound));
-      setLoginRequired(false);
     } catch {
       /* ignore */
     }
@@ -211,15 +204,9 @@ export function XhsPublishClient({ locale }: Props) {
       });
       const data = (await res.json()) as {
         sessionId?: string;
-        loginRequired?: boolean;
         error?: string;
         code?: string;
       };
-      if (res.status === 401 || data.loginRequired) {
-        setLoginRequired(true);
-        setBinding(false);
-        return;
-      }
       if (!res.ok) {
         setBindMsg(data.error || t.bindFail);
         setBinding(false);
@@ -259,15 +246,9 @@ export function XhsPublishClient({ locale }: Props) {
         id?: string;
         status?: string;
         error?: string;
-        loginRequired?: boolean;
         message?: string;
         status_label?: string;
       };
-      if (res.status === 401 || data.loginRequired) {
-        setLoginRequired(true);
-        setPublishing(false);
-        return;
-      }
       if (!res.ok) {
         setJobLogs(data.message || data.error || t.publishFail);
         setPublishing(false);
@@ -321,7 +302,6 @@ export function XhsPublishClient({ locale }: Props) {
         <p className="text-xs font-semibold uppercase tracking-wider text-sky-800/80">{t.kicker}</p>
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{t.title}</h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">{t.ledeCloud}</p>
-        <p className="mt-2 text-xs leading-relaxed text-amber-800/90">{t.riskNote}</p>
 
         <button
           type="button"
@@ -378,14 +358,6 @@ export function XhsPublishClient({ locale }: Props) {
         <section className="mt-8 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
           <h2 className="text-base font-bold text-slate-900">{t.bindTitle}</h2>
           <p className="mt-1 text-sm text-slate-600">{bound ? t.bindOk : t.bindNeed}</p>
-          {loginRequired ? (
-            <p className="mt-2 text-sm text-rose-700">
-              {t.needSiteLogin}{" "}
-              <Link className="font-semibold underline" href={`/${locale}/login?next=/${locale}/xhs`}>
-                {t.goLogin}
-              </Link>
-            </p>
-          ) : null}
           <div className="mt-4 flex flex-wrap gap-2">
             {!bound ? (
               <button

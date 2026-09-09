@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getAccountUser } from "@/lib/auth-server";
-import { prisma } from "@/lib/prisma";
 import { decryptSecret } from "@/lib/xhs-crypto";
+import { getOrCreateXhsGuestId, readXhsEncryptedSession } from "@/lib/xhs-guest";
 import { workerConfigured, workerFetch, workerUnavailableResponse } from "@/lib/xhs-worker-client";
 
 export const maxDuration = 120;
@@ -18,11 +17,6 @@ const bodySchema = z.object({
 });
 
 export async function POST(req: Request) {
-  const user = await getAccountUser();
-  if (!user) {
-    return NextResponse.json({ error: "LOGIN_REQUIRED", loginRequired: true }, { status: 401 });
-  }
-
   let body: unknown;
   try {
     body = await req.json();
@@ -35,8 +29,9 @@ export async function POST(req: Request) {
   }
   if (!workerConfigured()) return workerUnavailableResponse(parsed.data.locale);
 
-  const binding = await prisma.xhsBinding.findUnique({ where: { userId: user.id } });
-  if (!binding || binding.status !== "active") {
+  const guest = await getOrCreateXhsGuestId();
+  const enc = await readXhsEncryptedSession();
+  if (!enc) {
     return NextResponse.json(
       {
         error: "NOT_BOUND",
@@ -48,7 +43,7 @@ export async function POST(req: Request) {
 
   let sessionBlob: string;
   try {
-    sessionBlob = decryptSecret(binding.encryptedSession);
+    sessionBlob = decryptSecret(enc);
   } catch {
     return NextResponse.json(
       {
@@ -66,7 +61,7 @@ export async function POST(req: Request) {
       if (!jobId) return NextResponse.json({ error: "jobId required" }, { status: 400 });
       const res = await workerFetch(`/v1/jobs/${encodeURIComponent(jobId)}/confirm`, {
         method: "POST",
-        body: JSON.stringify({ userId: user.id, sessionBlob }),
+        body: JSON.stringify({ userId: guest.id, sessionBlob }),
       });
       const data = await res.json();
       return NextResponse.json(data, { status: res.status });
@@ -75,7 +70,7 @@ export async function POST(req: Request) {
     const res = await workerFetch("/v1/jobs", {
       method: "POST",
       body: JSON.stringify({
-        userId: user.id,
+        userId: guest.id,
         sessionBlob,
         title: draft.title,
         content: draft.content,
@@ -95,10 +90,6 @@ export async function POST(req: Request) {
 }
 
 export async function GET(req: Request) {
-  const user = await getAccountUser();
-  if (!user) {
-    return NextResponse.json({ error: "LOGIN_REQUIRED" }, { status: 401 });
-  }
   if (!workerConfigured()) return workerUnavailableResponse("zh");
   const jobId = new URL(req.url).searchParams.get("jobId");
   if (!jobId) return NextResponse.json({ error: "jobId required" }, { status: 400 });
