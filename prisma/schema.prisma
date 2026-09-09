@@ -21,6 +21,7 @@ model User {
   productNewsOptIn      Boolean @default(false)
   createdAt        DateTime    @default(now())
   savedTrips       SavedTrip[]
+  xhsBinding       XhsBinding?
 }
 
 model SavedTrip {
@@ -32,4 +33,17 @@ model SavedTrip {
   createdAt DateTime @default(now())
 
   @@index([userId])
+}
+
+/** 小红书云端代发：加密后的创作者会话（由 Worker 写入） */
+model XhsBinding {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /** AES-GCM 密文：Worker 会话目录或 cookie JSON */
+  encryptedSession String
+  status           String   @default("active")
+  label            String?
+  updatedAt        DateTime @updatedAt
+  createdAt        DateTime @default(now())
 }

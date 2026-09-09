@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import subprocess
 import threading
 from collections.abc import Callable
@@ -8,6 +9,16 @@ from pathlib import Path
 
 from cutpost.paths import XHS_SCRIPTS
 from cutpost.runner import CommandResult, python_argv, run_command
+
+
+def _want_headless() -> bool:
+    """Cloud/Docker: headless Chrome. Local desktop: headed unless XHS_CHROME_HEADLESS=1."""
+    v = os.environ.get("XHS_CHROME_HEADLESS", "").strip().lower()
+    if v in ("1", "true", "yes"):
+        return True
+    if v in ("0", "false", "no"):
+        return False
+    return Path("/.dockerenv").exists()
 
 LOGIN_CACHE = XHS_SCRIPTS.parent / "tmp" / "login_status_cache.json"
 
@@ -56,6 +67,8 @@ def check_login(account: str | None = None, *, force: bool = False) -> dict:
     argv = python_argv(str(CDP), "check-login")
     if account:
         argv.extend(["--account", account])
+    if _want_headless():
+        argv.append("--headless")
     result = _run(argv, timeout=90)
     if result.returncode not in (0, 1):
         raise XhsError(result.output or "检查登录失败")
@@ -79,15 +92,19 @@ def login(account: str | None = None) -> dict:
     }
 
 
-def login_qrcode(account: str | None = None, wait_seconds: float = 25.0) -> dict:
+def login_qrcode(account: str | None = None, wait_seconds: float = 12.0) -> dict:
     clear_login_cache()
     restart = python_argv(str(LAUNCHER), "--restart")
     if account:
         restart.extend(["--account", account])
+    if _want_headless():
+        restart.append("--headless")
     _run(restart, timeout=60)
     argv = python_argv(str(CDP), "get-login-qrcode", "--wait-seconds", str(wait_seconds))
     if account:
         argv.extend(["--account", account])
+    if _want_headless():
+        argv.append("--headless")
     result = _run(argv, timeout=90)
     payload = _extract_json(result.stdout) or {}
     payload.setdefault("logged_in", False)
@@ -126,6 +143,8 @@ def fill_or_publish(
         argv.extend(["--account", account])
     if preview:
         argv.append("--preview")
+    if _want_headless():
+        argv.append("--headless")
 
     with xhs_lock:
         result = _run(argv, timeout=900, on_line=on_line)
@@ -155,6 +174,8 @@ def click_publish(account: str | None = None, on_line: Callable[[str], None] | N
     argv = python_argv(str(CDP), "click-publish")
     if account:
         argv.extend(["--account", account])
+    if _want_headless():
+        argv.append("--headless")
     with xhs_lock:
         result = _run(argv, timeout=180, on_line=on_line)
     if result.returncode != 0 or not result.contains("PUBLISHED"):

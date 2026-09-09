@@ -14,7 +14,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const t = messages[locale].xhs;
   return {
     title: `${t.title} · takeadayoff.co.nz`,
-    description: t.ledeShort,
+    description: t.ledeCloud,
   };
 }
 

@@ -15,6 +15,7 @@ import sys
 import time
 import socket
 import subprocess
+from pathlib import Path
 from typing import Optional
 
 CDP_PORT = 9222
@@ -148,6 +149,13 @@ def launch_chrome(
 
     if headless:
         cmd.append("--headless=new")
+
+    # Docker / root containers need these or Chromium refuses to start
+    if (
+        os.environ.get("XHS_CHROME_NO_SANDBOX", "").strip() in ("1", "true", "yes")
+        or Path("/.dockerenv").exists()
+    ):
+        cmd.extend(["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
 
     mode_label = "headless" if headless else "headed"
     account_label = account or "default"

@@ -1,0 +1,12 @@
+# Railway: set Dockerfile path to services/xhs-worker/Dockerfile
+# Required variable: XHS_WORKER_SECRET
+
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "services/xhs-worker/Dockerfile"
+
+[deploy]
+healthcheckPath = "/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 5

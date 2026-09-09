@@ -26,3 +26,6 @@ tools/cutpost/.venv/
 tools/cutpost/data/
 tools/cutpost/**/__pycache__/
 tools/cutpost/**/*.pyc
+
+.xhs-secrets.tmp
+

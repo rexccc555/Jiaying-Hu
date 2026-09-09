@@ -204,7 +204,7 @@ function stripSurroundingQuotes(s: string): string {
  * 解析 OPENAI_BASE_URL；失败时返回明确错误，避免 SDK 只报 “Invalid URL”。
  * 常见修复：补全 `https://`、末尾 `/v1`、去掉引号与首尾空格。
  */
-function resolveOpenAiBaseUrl(raw: string | undefined):
+export function resolveOpenAiBaseUrl(raw: string | undefined):
   | { ok: true; baseURL?: string }
   | { ok: false; detail: string } {
   if (!raw?.trim()) return { ok: true, baseURL: undefined };
