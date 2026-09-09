@@ -19,6 +19,8 @@ ENV PYTHONUNBUFFERED=1
 ENV PORT=8787
 ENV XHS_CHROME_HEADLESS=1
 ENV XHS_CHROME_NO_SANDBOX=1
+ENV CHROME_PATH=/usr/bin/chromium
+ENV CHROME_BIN=/usr/bin/chromium
 EXPOSE 8787
 
 CMD ["python", "/app/services/xhs-worker/app.py"]

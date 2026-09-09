@@ -420,7 +420,20 @@ export function XhsPublishClient({ locale }: Props) {
             // eslint-disable-next-line @next/next/no-img-element
             <img src={qr} alt="QR" className="mt-4 max-w-[220px] rounded-xl border" />
           ) : null}
-          {bindMsg ? <p className="mt-2 text-xs text-slate-600">{bindMsg}</p> : null}
+          {bindMsg ? (
+            <p
+              className={`mt-2 text-sm ${
+                bindMsg.includes("失败") || bindMsg.includes("超时") || bindMsg.includes("error")
+                  ? "text-rose-700"
+                  : "text-slate-600"
+              }`}
+            >
+              {bindMsg}
+            </p>
+          ) : null}
+          {binding && !qr ? (
+            <p className="mt-3 text-xs text-slate-500">云端正在打开浏览器截取二维码，通常需要 10–40 秒…</p>
+          ) : null}
         </section>
 
         <section className="mt-8 rounded-3xl border border-rose-100 bg-rose-50/50 p-5 shadow-sm">

@@ -20,7 +20,7 @@ from typing import Optional
 
 CDP_PORT = 9222
 PROFILE_DIR_NAME = "XiaohongshuProfile"
-STARTUP_TIMEOUT = 15  # seconds to wait for Chrome to start
+STARTUP_TIMEOUT = 25  # seconds to wait for Chrome to start
 
 # Track the Chrome process we launched so we can kill it later
 _chrome_process: subprocess.Popen | None = None
@@ -29,7 +29,12 @@ _current_account: Optional[str] = None
 
 
 def get_chrome_path() -> str:
-    """Find Chrome executable on Windows/macOS/Linux."""
+    """Find Chrome/Chromium executable. Honors CHROME_PATH / CHROME_BIN in containers."""
+    for env_key in ("CHROME_PATH", "CHROME_BIN", "GOOGLE_CHROME_BIN"):
+        env_path = os.environ.get(env_key, "").strip()
+        if env_path and os.path.isfile(env_path):
+            return env_path
+
     candidates = []
 
     if sys.platform == "win32":
@@ -49,10 +54,10 @@ def get_chrome_path() -> str:
     else:
         candidates.extend(
             [
+                "/usr/bin/chromium",
+                "/usr/bin/chromium-browser",
                 "/usr/bin/google-chrome",
                 "/usr/bin/google-chrome-stable",
-                "/usr/bin/chromium-browser",
-                "/usr/bin/chromium",
             ]
         )
 
@@ -62,10 +67,10 @@ def get_chrome_path() -> str:
 
     import shutil
     found = (
-        shutil.which("google-chrome")
-        or shutil.which("google-chrome-stable")
+        shutil.which("chromium")
         or shutil.which("chromium-browser")
-        or shutil.which("chromium")
+        or shutil.which("google-chrome")
+        or shutil.which("google-chrome-stable")
         or shutil.which("chrome")
         or shutil.which("chrome.exe")
     )
@@ -73,7 +78,7 @@ def get_chrome_path() -> str:
         return found
 
     raise FileNotFoundError(
-        "Chrome not found. Please install Google Chrome or set its path manually."
+        "Chrome not found. Please install Google Chrome or set CHROME_PATH."
     )
 
 
@@ -145,6 +150,8 @@ def launch_chrome(
         "--disable-renderer-backgrounding",
         "--disable-backgrounding-occluded-windows",
         "--disable-background-media-suspend",
+        "--remote-allow-origins=*",
+        "--window-size=1280,900",
     ]
 
     if headless:
@@ -155,7 +162,14 @@ def launch_chrome(
         os.environ.get("XHS_CHROME_NO_SANDBOX", "").strip() in ("1", "true", "yes")
         or Path("/.dockerenv").exists()
     ):
-        cmd.extend(["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
+        cmd.extend(
+            [
+                "--no-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--disable-software-rasterizer",
+            ]
+        )
 
     mode_label = "headless" if headless else "headed"
     account_label = account or "default"
@@ -164,10 +178,16 @@ def launch_chrome(
     print(f"  profile dir: {user_data_dir}")
     print(f"  debug port : {port}")
 
+    log_path = Path(os.environ.get("XHS_CHROME_LOG", "/tmp/xhs-chrome-launch.log"))
+    try:
+        log_file = log_path.open("w", encoding="utf-8")
+    except OSError:
+        log_file = subprocess.DEVNULL
+
     proc = subprocess.Popen(
         cmd,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        stdout=log_file if log_file is not subprocess.DEVNULL else subprocess.DEVNULL,
+        stderr=subprocess.STDOUT if log_file is not subprocess.DEVNULL else subprocess.DEVNULL,
     )
     _chrome_process = proc
 
@@ -177,11 +197,25 @@ def launch_chrome(
         if is_port_open(port):
             print(f"[chrome_launcher] Chrome is ready on port {port}.")
             return proc
+        if proc.poll() is not None:
+            crash = ""
+            try:
+                crash = log_path.read_text(encoding="utf-8", errors="replace")[-2000:]
+            except Exception:
+                pass
+            raise RuntimeError(
+                f"Chrome exited early (code={proc.returncode}). Log:\n{crash or '(empty)'}"
+            )
         time.sleep(0.5)
 
+    crash = ""
+    try:
+        crash = log_path.read_text(encoding="utf-8", errors="replace")[-2000:]
+    except Exception:
+        pass
     print(
         f"[chrome_launcher] WARNING: Chrome started but port {port} not responding "
-        f"after {STARTUP_TIMEOUT}s. It may still be initializing.",
+        f"after {STARTUP_TIMEOUT}s. It may still be initializing.\n{crash}",
         file=sys.stderr,
     )
     return proc
@@ -201,18 +235,17 @@ def kill_chrome(port: int = CDP_PORT):
     # Strategy 1: CDP Browser.close
     try:
         import requests
-        resp = requests.get(f"http://127.0.0.1:{port}/json/version", timeout=2)
+        resp = requests.get(f"http://127.0.0.1:{port}/json/version", timeout=1)
         if resp.ok:
             ws_url = resp.json().get("webSocketDebuggerUrl")
             if ws_url:
                 import websockets.sync.client as ws_client
-                ws = ws_client.connect(ws_url)
-                ws.send('{"id":1,"method":"Browser.close"}')
-                try:
-                    ws.recv(timeout=2)
-                except Exception:
-                    pass
-                ws.close()
+                with ws_client.connect(ws_url, open_timeout=2, close_timeout=2) as ws:
+                    ws.send('{"id":1,"method":"Browser.close"}')
+                    try:
+                        ws.recv(timeout=1)
+                    except Exception:
+                        pass
                 print("[chrome_launcher] Sent Browser.close via CDP.")
     except Exception:
         pass
@@ -311,7 +344,7 @@ def ensure_chrome(
     try:
         launch_chrome(port, headless=headless, account=account)
         return is_port_open(port)
-    except FileNotFoundError as e:
+    except (FileNotFoundError, RuntimeError) as e:
         print(f"[chrome_launcher] Error: {e}", file=sys.stderr)
         return False
 
@@ -336,8 +369,12 @@ if __name__ == "__main__":
         kill_chrome(port=args.port)
         print("[chrome_launcher] Chrome killed.")
     elif args.restart:
-        restart_chrome(port=args.port, headless=args.headless, account=args.account)
-        print("[chrome_launcher] Chrome restarted.")
+        try:
+            restart_chrome(port=args.port, headless=args.headless, account=args.account)
+            print("[chrome_launcher] Chrome restarted.")
+        except Exception as e:
+            print(f"[chrome_launcher] Error: {e}", file=sys.stderr)
+            sys.exit(1)
     elif ensure_chrome(port=args.port, headless=args.headless, account=args.account):
         print("[chrome_launcher] Chrome is ready for CDP connections.")
     else:

@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
@@ -48,16 +49,26 @@ def run_command(
     )
     lines: list[str] = []
     assert process.stdout is not None
-    try:
+
+    def _reader() -> None:
+        assert process.stdout is not None
         for line in process.stdout:
             lines.append(line)
             if on_line:
                 on_line(line.rstrip("\n"))
-        returncode = process.wait(timeout=timeout)
-    except subprocess.TimeoutExpired:
+
+    reader = threading.Thread(target=_reader, daemon=True)
+    reader.start()
+    reader.join(timeout=timeout)
+    if reader.is_alive():
         process.kill()
-        process.wait()
-        raise
+        try:
+            process.wait(timeout=5)
+        except Exception:
+            pass
+        raise subprocess.TimeoutExpired(argv, timeout, output="".join(lines))
+
+    returncode = process.wait(timeout=5)
     output = "".join(lines)
     return CommandResult(returncode=returncode, stdout=output, stderr="")
 

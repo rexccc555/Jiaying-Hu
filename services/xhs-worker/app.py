@@ -145,18 +145,35 @@ def login_start(body: LoginStart, authorization: str | None = Header(default=Non
     def run() -> None:
         try:
             _update_session(session_id, message="正在启动 Chrome…")
-            result = xhs.login_qrcode(account=body.userId, wait_seconds=8.0)
+
+            def on_line(line: str) -> None:
+                text = (line or "").strip()
+                if not text:
+                    return
+                # Keep UI feeling alive while launcher/cdp prints progress
+                if len(text) > 160:
+                    text = text[:157] + "…"
+                _update_session(session_id, message=text)
+
+            result = xhs.login_qrcode(account=body.userId, wait_seconds=10.0, on_line=on_line)
             qr = result.get("qrcode_data_url")
             if not qr and result.get("qrcode_base64"):
                 qr = f"data:image/png;base64,{result['qrcode_base64']}"
+            err = result.get("error")
             _update_session(
                 session_id,
                 logged_in=bool(result.get("logged_in")),
                 qrcode_data_url=qr,
-                message=result.get("message") or "",
+                message=result.get("message") or ("已获取二维码" if qr else "未获取到二维码"),
                 sessionBlob=result.get("session_blob") or result.get("account") or body.userId,
-                error=None,
+                error=err,
             )
+            if not qr and not result.get("logged_in"):
+                _update_session(
+                    session_id,
+                    error=err or "no_qrcode",
+                    message=result.get("message") or "未获取到二维码，请重试",
+                )
         except xhs.XhsError as exc:
             _update_session(session_id, error=str(exc), message=str(exc))
         except Exception as exc:

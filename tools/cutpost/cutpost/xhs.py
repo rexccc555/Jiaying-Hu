@@ -92,29 +92,44 @@ def login(account: str | None = None) -> dict:
     }
 
 
-def login_qrcode(account: str | None = None, wait_seconds: float = 12.0) -> dict:
+def login_qrcode(
+    account: str | None = None,
+    wait_seconds: float = 10.0,
+    on_line: Callable[[str], None] | None = None,
+) -> dict:
     clear_login_cache()
     restart = python_argv(str(LAUNCHER), "--restart")
     if account:
         restart.extend(["--account", account])
     if _want_headless():
         restart.append("--headless")
-    _run(restart, timeout=60)
+    try:
+        restart_result = _run(restart, timeout=35, on_line=on_line)
+    except subprocess.TimeoutExpired as exc:
+        raise XhsError("启动浏览器超时。请稍后重试。") from exc
     argv = python_argv(str(CDP), "get-login-qrcode", "--wait-seconds", str(wait_seconds))
     if account:
         argv.extend(["--account", account])
     if _want_headless():
         argv.append("--headless")
-    result = _run(argv, timeout=90)
+    try:
+        result = _run(argv, timeout=50, on_line=on_line)
+    except subprocess.TimeoutExpired as exc:
+        raise XhsError("获取登录二维码超时。请稍后重试。") from exc
     payload = _extract_json(result.stdout) or {}
     payload.setdefault("logged_in", False)
     if payload.get("logged_in"):
         payload["message"] = "已经是登录状态，可以直接预览。"
     elif payload.get("qrcode_data_url") or payload.get("qrcode_base64"):
-        payload["message"] = "请用小红书 App 扫这个码，或扫弹出的 Chrome 窗口。扫完后本页会自动检测。"
+        payload["message"] = "请用小红书 App 扫这个码。扫完后本页会自动检测。"
     else:
-        payload["message"] = "网页里没截到码，请直接看弹出的 Chrome 窗口扫码，不要关掉那个窗口。"
+        hint = (result.output or "")[-500:]
+        payload["message"] = "没有截到二维码，请重试。"
+        if hint:
+            payload["error"] = hint
     payload["output"] = result.output
+    if restart_result.output and "exited early" in restart_result.output.lower():
+        raise XhsError(restart_result.output[-800:])
     return payload
 
 
