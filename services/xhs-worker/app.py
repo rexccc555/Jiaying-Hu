@@ -150,13 +150,11 @@ def login_start(body: LoginStart, authorization: str | None = Header(default=Non
                 text = (line or "").strip()
                 if not text:
                     return
-                # Keep UI feeling alive while launcher/cdp prints progress
                 if len(text) > 160:
                     text = text[:157] + "…"
                 _update_session(session_id, message=text)
 
-    try:
-        result = xhs.login_qrcode(account=body.userId, wait_seconds=25.0, on_line=on_line)
+            result = xhs.login_qrcode(account=body.userId, wait_seconds=25.0, on_line=on_line)
             qr = result.get("qrcode_data_url")
             if not qr and result.get("qrcode_base64"):
                 qr = f"data:image/png;base64,{result['qrcode_base64']}"
@@ -174,6 +172,7 @@ def login_start(body: LoginStart, authorization: str | None = Header(default=Non
                     session_id,
                     error=err or "no_qrcode",
                     message=result.get("message") or "未获取到二维码，请重试",
+                    qrcode_data_url=None,
                 )
         except xhs.XhsError as exc:
             _update_session(
