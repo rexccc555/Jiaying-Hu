@@ -175,12 +175,18 @@ def login_start(body: LoginStart, authorization: str | None = Header(default=Non
                     message=result.get("message") or "未获取到二维码，请重试",
                 )
         except xhs.XhsError as exc:
-            _update_session(session_id, error=str(exc), message=str(exc))
+            _update_session(
+                session_id,
+                error=str(exc),
+                message=str(exc),
+                qrcode_data_url=None,
+            )
         except Exception as exc:
             _update_session(
                 session_id,
                 error=str(exc),
                 message=f"获取二维码失败：{exc}",
+                qrcode_data_url=None,
             )
             print(f"[login] unexpected error:\n{traceback.format_exc()}", flush=True)
 

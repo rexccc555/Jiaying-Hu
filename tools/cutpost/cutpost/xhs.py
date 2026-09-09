@@ -110,42 +110,53 @@ def login_qrcode(
     on_line: Callable[[str], None] | None = None,
 ) -> dict:
     clear_login_cache()
-    restart = python_argv(str(LAUNCHER), "--restart")
-    if account:
-        restart.extend(["--account", account])
-    if _want_headless():
-        restart.append("--headless")
+    # Drop leftover publish locks from crashed/hung CDP runs
     try:
-        restart_result = _run(restart, timeout=35, on_line=on_line)
-    except subprocess.TimeoutExpired as exc:
-        raise XhsError("启动浏览器超时。请稍后重试。") from exc
-    argv = _cdp_argv(
-        "get-login-qrcode",
-        "--wait-seconds",
-        str(wait_seconds),
-        account=account,
-    )
-    try:
-        result = _run(argv, timeout=50, on_line=on_line)
-    except subprocess.TimeoutExpired as exc:
-        raise XhsError("获取登录二维码超时。请稍后重试。") from exc
-    if result.returncode != 0 and "unrecognized arguments" in result.output:
-        raise XhsError(result.output[-500:] or "获取二维码参数错误")
-    payload = _extract_json(result.stdout) or {}
-    payload.setdefault("logged_in", False)
-    if payload.get("logged_in"):
-        payload["message"] = "已经是登录状态，可以直接预览。"
-    elif payload.get("qrcode_data_url") or payload.get("qrcode_base64"):
-        payload["message"] = "请用小红书 App 扫这个码。扫完后本页会自动检测。"
-    else:
-        hint = (result.output or "")[-500:]
-        payload["message"] = "没有截到二维码，请重试。"
-        if hint:
-            payload["error"] = hint
-    payload["output"] = result.output
-    if restart_result.output and "exited early" in restart_result.output.lower():
-        raise XhsError(restart_result.output[-800:])
-    return payload
+        import tempfile
+
+        (Path(tempfile.gettempdir()) / "post_to_xhs_publish.lock").unlink(missing_ok=True)
+    except Exception:
+        pass
+
+    with xhs_lock:
+        restart = python_argv(str(LAUNCHER), "--restart")
+        if account:
+            restart.extend(["--account", account])
+        if _want_headless():
+            restart.append("--headless")
+        try:
+            restart_result = _run(restart, timeout=35, on_line=on_line)
+        except subprocess.TimeoutExpired as exc:
+            raise XhsError("启动浏览器超时。请稍后重试。") from exc
+        argv = _cdp_argv(
+            "get-login-qrcode",
+            "--wait-seconds",
+            str(wait_seconds),
+            account=account,
+        )
+        try:
+            result = _run(argv, timeout=50, on_line=on_line)
+        except subprocess.TimeoutExpired as exc:
+            raise XhsError("获取登录二维码超时。请稍后重试。") from exc
+        if result.returncode != 0 and "unrecognized arguments" in result.output:
+            raise XhsError(result.output[-500:] or "获取二维码参数错误")
+        if result.returncode != 0 and "Another publish process" in result.output:
+            raise XhsError("上一次扫码还在进行，请稍后再试一次。")
+        payload = _extract_json(result.stdout) or {}
+        payload.setdefault("logged_in", False)
+        if payload.get("logged_in"):
+            payload["message"] = "已经是登录状态，可以直接预览。"
+        elif payload.get("qrcode_data_url") or payload.get("qrcode_base64"):
+            payload["message"] = "请用小红书 App 扫这个码。扫完后本页会自动检测。"
+        else:
+            hint = (result.output or "")[-500:]
+            payload["message"] = "没有截到二维码，请重试。"
+            if hint:
+                payload["error"] = hint
+        payload["output"] = result.output
+        if restart_result.output and "exited early" in restart_result.output.lower():
+            raise XhsError(restart_result.output[-800:])
+        return payload
 
 
 def fill_or_publish(

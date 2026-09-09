@@ -85,18 +85,38 @@ export function XhsPublishClient({ locale }: Props) {
           error?: string;
         };
         if (data.guestId) setGuestId(data.guestId);
-        if (data.qrcode_data_url) setQr(data.qrcode_data_url);
+        if ((data.error || data.status === "error") && !data.qrcode_data_url) {
+          setQr(null);
+        }
+        if (data.qrcode_data_url && !(data.error || "").toLowerCase().includes("another publish")) {
+          setQr(data.qrcode_data_url);
+        }
         if (data.message) setBindMsg(data.message);
-        if (data.error) setBindMsg(data.error);
+        if (data.error) {
+          const err = data.error;
+          setBindMsg(err);
+          if (
+            err.toLowerCase().includes("another publish") ||
+            err === "session_not_found" ||
+            err === "user_mismatch" ||
+            data.status === "error"
+          ) {
+            setBinding(false);
+            setBindSessionId(null);
+            setQr(null);
+            return true;
+          }
+        }
         if (data.bound || data.status === "bound") {
           setBound(true);
           setBinding(false);
           setBindSessionId(null);
           return true;
         }
-        if (data.status === "error" || data.error === "session_not_found" || data.error === "user_mismatch") {
+        if (data.status === "error") {
           setBinding(false);
           setBindSessionId(null);
+          setQr(null);
           setBindMsg(data.error || data.message || t.bindFail);
           return true;
         }

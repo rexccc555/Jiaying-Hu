@@ -82,6 +82,18 @@ def _format_conflict_message(path: str, lock_data: dict[str, Any]) -> str:
     return f"Another publish process is running (lock: {path}). Please wait before retrying."
 
 
+def force_clear_lock(lock_name: str = "post_to_xhs_publish") -> bool:
+    """Remove lock file even if a pid is recorded (cloud worker recovery)."""
+    path = _lock_path(lock_name)
+    try:
+        os.remove(path)
+        return True
+    except FileNotFoundError:
+        return False
+    except OSError:
+        return False
+
+
 @contextmanager
 def single_instance(lock_name: str = "post_to_xhs_publish"):
     """Acquire a process-wide lock to prevent concurrent publish runs."""

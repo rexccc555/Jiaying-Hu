@@ -4813,9 +4813,34 @@ def main():
 
 
 if __name__ == "__main__":
+    # Login/QR helpers must not be blocked by a stuck publish lock on the cloud worker.
+    _skip_lock_commands = {
+        "get-login-qrcode",
+        "get_login_qrcode",
+        "check-login",
+        "login",
+        "re-login",
+        "switch-account",
+        "list-accounts",
+        "add-account",
+        "remove-account",
+        "set-default-account",
+    }
+    cmd = None
+    for arg in sys.argv[1:]:
+        if not arg.startswith("-"):
+            cmd = arg
+            break
+
     try:
-        with single_instance("post_to_xhs_publish"):
+        if cmd in _skip_lock_commands:
+            from run_lock import force_clear_lock
+
+            force_clear_lock("post_to_xhs_publish")
             main()
+        else:
+            with single_instance("post_to_xhs_publish"):
+                main()
     except SingleInstanceError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(3)
