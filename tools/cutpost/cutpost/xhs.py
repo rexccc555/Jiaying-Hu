@@ -61,14 +61,28 @@ def clear_login_cache() -> None:
         pass
 
 
+def _cdp_argv(
+    command: str,
+    *extra: str,
+    account: str | None = None,
+    headless: bool | None = None,
+) -> list[str]:
+    """Parent flags (--account/--headless) must come before the subcommand."""
+    argv = python_argv(str(CDP))
+    use_headless = _want_headless() if headless is None else headless
+    if account:
+        argv.extend(["--account", account])
+    if use_headless:
+        argv.append("--headless")
+    argv.append(command)
+    argv.extend(extra)
+    return argv
+
+
 def check_login(account: str | None = None, *, force: bool = False) -> dict:
     if force:
         clear_login_cache()
-    argv = python_argv(str(CDP), "check-login")
-    if account:
-        argv.extend(["--account", account])
-    if _want_headless():
-        argv.append("--headless")
+    argv = _cdp_argv("check-login", account=account)
     result = _run(argv, timeout=90)
     if result.returncode not in (0, 1):
         raise XhsError(result.output or "检查登录失败")
@@ -81,9 +95,7 @@ def check_login(account: str | None = None, *, force: bool = False) -> dict:
 
 
 def login(account: str | None = None) -> dict:
-    argv = python_argv(str(CDP), "login")
-    if account:
-        argv.extend(["--account", account])
+    argv = _cdp_argv("login", account=account, headless=False)
     result = _run(argv, timeout=120)
     return {
         "ok": result.returncode == 0,
@@ -107,15 +119,18 @@ def login_qrcode(
         restart_result = _run(restart, timeout=35, on_line=on_line)
     except subprocess.TimeoutExpired as exc:
         raise XhsError("启动浏览器超时。请稍后重试。") from exc
-    argv = python_argv(str(CDP), "get-login-qrcode", "--wait-seconds", str(wait_seconds))
-    if account:
-        argv.extend(["--account", account])
-    if _want_headless():
-        argv.append("--headless")
+    argv = _cdp_argv(
+        "get-login-qrcode",
+        "--wait-seconds",
+        str(wait_seconds),
+        account=account,
+    )
     try:
         result = _run(argv, timeout=50, on_line=on_line)
     except subprocess.TimeoutExpired as exc:
         raise XhsError("获取登录二维码超时。请稍后重试。") from exc
+    if result.returncode != 0 and "unrecognized arguments" in result.output:
+        raise XhsError(result.output[-500:] or "获取二维码参数错误")
     payload = _extract_json(result.stdout) or {}
     payload.setdefault("logged_in", False)
     if payload.get("logged_in"):
@@ -186,11 +201,7 @@ def fill_or_publish(
 
 
 def click_publish(account: str | None = None, on_line: Callable[[str], None] | None = None) -> dict:
-    argv = python_argv(str(CDP), "click-publish")
-    if account:
-        argv.extend(["--account", account])
-    if _want_headless():
-        argv.append("--headless")
+    argv = _cdp_argv("click-publish", account=account)
     with xhs_lock:
         result = _run(argv, timeout=180, on_line=on_line)
     if result.returncode != 0 or not result.contains("PUBLISHED"):
