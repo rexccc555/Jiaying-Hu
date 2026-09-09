@@ -1221,6 +1221,32 @@ class XiaohongshuPublisher:
             break
 
         if not image_base64:
+            # Datacenter/headless pages often hide DOM QR; fall back to a large viewport shot
+            # so the user can still scan if the code is painted on screen.
+            try:
+                self._send("Page.enable")
+                shot = self._send(
+                    "Page.captureScreenshot",
+                    {"format": "png", "captureBeyondViewport": True},
+                )
+                candidate = shot.get("data") if isinstance(shot, dict) else None
+                if isinstance(candidate, str) and len(candidate) >= 8000:
+                    image_base64 = candidate
+                    mime_type = "image/png"
+                    qrcode_data_url = f"data:{mime_type};base64,{image_base64}"
+                    return {
+                        "logged_in": False,
+                        "current_url": current_url,
+                        "qrcode_base64": image_base64,
+                        "qrcode_data_url": qrcode_data_url,
+                        "mime_type": mime_type,
+                        "selector": "viewport-fallback",
+                        "tag_name": "screenshot",
+                        "hint_text": "viewport",
+                        "message": "已截取登录页，请在图中找到二维码扫码。",
+                    }
+            except Exception:
+                pass
             self._navigate("https://creator.xiaohongshu.com/login")
             self._sleep(2.0, minimum_seconds=0.8)
             raise CDPError(f"Failed to locate login QR code: {last_reason}")

@@ -34,6 +34,7 @@ export function XhsPublishClient({ locale }: Props) {
   const [bindMsg, setBindMsg] = useState<string | null>(null);
   const [binding, setBinding] = useState(false);
   const [guestId, setGuestId] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
   const [jobStatusCode, setJobStatusCode] = useState<string | null>(null);
@@ -90,22 +91,35 @@ export function XhsPublishClient({ locale }: Props) {
         }
         if (data.qrcode_data_url && !(data.error || "").toLowerCase().includes("another publish")) {
           setQr(data.qrcode_data_url);
+          if (data.message) setBindMsg(data.message);
+        } else if (data.message && !data.error) {
+          setBindMsg(data.message);
         }
-        if (data.message) setBindMsg(data.message);
         if (data.error) {
           const err = data.error;
-          setBindMsg(err);
-          if (
-            err.toLowerCase().includes("another publish") ||
-            err === "session_not_found" ||
-            err === "user_mismatch" ||
-            data.status === "error"
-          ) {
+          const busy = err.toLowerCase().includes("another publish") || err.includes("还在进行");
+          const noQr =
+            !data.qrcode_data_url &&
+            (data.status === "error" ||
+              err === "session_not_found" ||
+              err === "user_mismatch" ||
+              err === "no_qrcode" ||
+              /qrcode|二维码|locate login|没有截到|未获取到|超时|Failed to/i.test(err));
+          if (busy) {
+            setBindMsg("上一次扫码还在进行，请稍后再点一次「扫码绑定」。");
             setBinding(false);
             setBindSessionId(null);
             setQr(null);
             return true;
           }
+          if (noQr) {
+            setBindMsg(t.bindQrUnavailable);
+            setBinding(false);
+            setBindSessionId(null);
+            setQr(null);
+            return true;
+          }
+          setBindMsg(err);
         }
         if (data.bound || data.status === "bound") {
           setBound(true);
@@ -143,7 +157,7 @@ export function XhsPublishClient({ locale }: Props) {
       cancelled = true;
       window.clearInterval(id);
     };
-  }, [bindSessionId, guestId, t.bindFail, t.bindTimeout]);
+  }, [bindSessionId, guestId, t.bindFail, t.bindTimeout, t.bindQrUnavailable]);
 
   useEffect(() => {
     if (!jobId) return;
@@ -410,6 +424,23 @@ export function XhsPublishClient({ locale }: Props) {
                 onChange={(e) => setDraft({ ...draft, content: e.target.value })}
               />
             </label>
+            <button
+              type="button"
+              className="mt-3 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(
+                    `${draft.title}\n\n${draft.content}\n\n${draft.tags.map((t) => `#${t}`).join(" ")}`,
+                  );
+                  setCopied(true);
+                  window.setTimeout(() => setCopied(false), 2000);
+                } catch {
+                  setCopied(false);
+                }
+              }}
+            >
+              {copied ? t.copiedDraft : t.copyDraft}
+            </button>
           </section>
         ) : null}
 
@@ -441,7 +472,7 @@ export function XhsPublishClient({ locale }: Props) {
             <img
               src={qr}
               alt="小红书登录二维码"
-              className="mt-4 max-w-[240px] rounded-xl border bg-white p-2"
+              className="mt-4 w-full max-w-md rounded-xl border bg-white p-2"
               onError={() => {
                 setQr(null);
                 setBindMsg("二维码图片损坏，请再点一次「扫码绑定」。");

@@ -168,24 +168,35 @@ def login_start(body: LoginStart, authorization: str | None = Header(default=Non
                 error=err,
             )
             if not qr and not result.get("logged_in"):
+                friendly = (
+                    "云端截不到可扫的登录码。请复制文案后到小红书 App 手动发，或稍后再试。"
+                )
                 _update_session(
                     session_id,
                     error=err or "no_qrcode",
-                    message=result.get("message") or "未获取到二维码，请重试",
+                    message=result.get("message") or friendly,
                     qrcode_data_url=None,
                 )
         except xhs.XhsError as exc:
+            text = str(exc)
+            if "qrcode" in text.lower() or "二维码" in text or "locate login" in text.lower():
+                text = "云端截不到可扫的登录码。请复制文案后到小红书 App 手动发，或稍后再试。"
             _update_session(
                 session_id,
-                error=str(exc),
-                message=str(exc),
+                error=str(exc) or "no_qrcode",
+                message=text,
                 qrcode_data_url=None,
             )
         except Exception as exc:
+            text = str(exc)
+            if "qrcode" in text.lower() or "locate login" in text.lower():
+                text = "云端截不到可扫的登录码。请复制文案后到小红书 App 手动发，或稍后再试。"
+            else:
+                text = f"获取二维码失败：{exc}"
             _update_session(
                 session_id,
-                error=str(exc),
-                message=f"获取二维码失败：{exc}",
+                error=str(exc) or "no_qrcode",
+                message=text,
                 qrcode_data_url=None,
             )
             print(f"[login] unexpected error:\n{traceback.format_exc()}", flush=True)

@@ -147,12 +147,16 @@ def login_qrcode(
         if payload.get("logged_in"):
             payload["message"] = "已经是登录状态，可以直接预览。"
         elif payload.get("qrcode_data_url") or payload.get("qrcode_base64"):
-            payload["message"] = "请用小红书 App 扫这个码。扫完后本页会自动检测。"
+            if payload.get("selector") == "viewport-fallback":
+                payload["message"] = "已截取登录页，请在图中找到二维码用小红书 App 扫码。"
+            else:
+                payload["message"] = "请用小红书 App 扫这个码。扫完后本页会自动检测。"
         else:
             hint = (result.output or "")[-500:]
-            payload["message"] = "没有截到二维码，请重试。"
-            if hint:
-                payload["error"] = hint
+            raise XhsError(
+                "云端截不到可扫的登录码。请复制文案后到小红书 App 手动发，或稍后再试。"
+                + (f" ({hint[-120:]})" if hint else "")
+            )
         payload["output"] = result.output
         if restart_result.output and "exited early" in restart_result.output.lower():
             raise XhsError(restart_result.output[-800:])
