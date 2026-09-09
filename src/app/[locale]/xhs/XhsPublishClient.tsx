@@ -438,7 +438,17 @@ export function XhsPublishClient({ locale }: Props) {
           </div>
           {qr ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={qr} alt="QR" className="mt-4 max-w-[220px] rounded-xl border" />
+            <img
+              src={qr}
+              alt="小红书登录二维码"
+              className="mt-4 max-w-[240px] rounded-xl border bg-white p-2"
+              onError={() => {
+                setQr(null);
+                setBindMsg("二维码图片损坏，请再点一次「扫码绑定」。");
+                setBinding(false);
+                setBindSessionId(null);
+              }}
+            />
           ) : null}
           {bindMsg ? (
             <p

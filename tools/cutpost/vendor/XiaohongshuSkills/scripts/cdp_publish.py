@@ -1052,52 +1052,80 @@ class XiaohongshuPublisher:
         result = self._evaluate(r"""
             (() => {
                 const normalize = (text) => (text || "").replace(/\s+/g, " ").trim();
-                const visible = (node) => (
-                    node instanceof HTMLElement &&
-                    node.offsetParent !== null &&
-                    node.getBoundingClientRect().width >= 24 &&
-                    node.getBoundingClientRect().height >= 24
-                );
+                const visible = (node) => {
+                    if (!(node instanceof HTMLElement)) return false;
+                    const rect = node.getBoundingClientRect();
+                    const style = window.getComputedStyle(node);
+                    if (style.display === "none" || style.visibility === "hidden" || Number(style.opacity) === 0) {
+                        return false;
+                    }
+                    // Real login QR is a large square; skip decorative icons.
+                    if (rect.width < 120 || rect.height < 120) return false;
+                    const ratio = rect.width / Math.max(rect.height, 1);
+                    if (ratio < 0.75 || ratio > 1.35) return false;
+                    return true;
+                };
+                const scoreNode = (node, selector) => {
+                    const rect = node.getBoundingClientRect();
+                    let score = Math.min(rect.width, rect.height);
+                    const cls = String(node.className || "").toLowerCase();
+                    const src = node instanceof HTMLImageElement ? (node.currentSrc || node.src || "") : "";
+                    if (selector.includes("qrcode") || cls.includes("qrcode")) score += 80;
+                    if (src.includes("qrcode") || src.includes("qr")) score += 60;
+                    if (node instanceof HTMLCanvasElement) score += 40;
+                    const nearby = normalize(
+                        (node.parentElement && (node.parentElement.innerText || node.parentElement.textContent)) || ""
+                    );
+                    if (nearby.includes("扫码") || nearby.includes("登录")) score += 30;
+                    return score;
+                };
+
                 const selectors = [
                     ".login-container .qrcode-img",
-                    ".login-container img",
                     "img.qrcode-img",
                     "img[src*='qrcode']",
-                    "[class*='qrcode'] img",
-                    "[class*='qr'] img",
+                    "img[src*='QR']",
                     "[class*='qrcode'] canvas",
-                    "[class*='qr'] canvas",
-                    ".login-container canvas",
+                    "[class*='qrcode'] img",
+                    "[class*='qr-code'] canvas",
+                    "[class*='qr-code'] img",
+                    "[class*='login'] canvas",
+                    "canvas",
                 ];
 
+                let best = null;
                 for (const selector of selectors) {
                     const nodes = document.querySelectorAll(selector);
                     for (const node of nodes) {
-                        if (!visible(node)) {
-                            continue;
-                        }
+                        if (!visible(node)) continue;
+                        const score = scoreNode(node, selector);
+                        if (best && score <= best.score) continue;
                         const rect = node.getBoundingClientRect();
                         const src = node instanceof HTMLImageElement ? (node.currentSrc || node.src || "") : "";
                         const dataUrl = node instanceof HTMLCanvasElement ? node.toDataURL("image/png") : "";
                         const parentText = normalize(
                             node.parentElement ? (node.parentElement.innerText || node.parentElement.textContent) : ""
                         );
-                        return {
-                            ok: true,
-                            tag_name: String(node.tagName || "").toLowerCase(),
-                            selector,
-                            src,
-                            data_url: dataUrl,
-                            rect: {
-                                x: rect.x,
-                                y: rect.y,
-                                width: rect.width,
-                                height: rect.height,
+                        best = {
+                            score,
+                            payload: {
+                                ok: true,
+                                tag_name: String(node.tagName || "").toLowerCase(),
+                                selector,
+                                src,
+                                data_url: dataUrl,
+                                rect: {
+                                    x: rect.x,
+                                    y: rect.y,
+                                    width: rect.width,
+                                    height: rect.height,
+                                },
+                                hint_text: parentText,
                             },
-                            hint_text: parentText,
                         };
                     }
                 }
+                if (best) return best.payload;
                 return { ok: false, reason: "qrcode_not_found" };
             })()
         """)
@@ -1126,31 +1154,76 @@ class XiaohongshuPublisher:
                 "message": "Already logged in.",
             }
 
-        deadline = time.time() + max(3.0, float(wait_seconds))
+        deadline = time.time() + max(8.0, float(wait_seconds))
+        last_reason = "qrcode_not_found"
+        image_base64 = ""
+        mime_type = "image/png"
+        qrcode_data_url = ""
         qrcode_meta: dict[str, Any] | None = None
+
         while time.time() < deadline:
             qrcode_meta = self._locate_login_qrcode()
-            if qrcode_meta.get("ok"):
-                break
-            self._sleep(0.6, minimum_seconds=0.2)
+            if not qrcode_meta.get("ok"):
+                last_reason = str(qrcode_meta.get("reason") or "qrcode_not_found")
+                self._sleep(0.8, minimum_seconds=0.3)
+                continue
 
-        if not qrcode_meta or not qrcode_meta.get("ok"):
-            reason = qrcode_meta.get("reason", "qrcode_not_found") if isinstance(qrcode_meta, dict) else "qrcode_not_found"
-            raise CDPError(f"Failed to locate login QR code: {reason}")
+            rect = qrcode_meta.get("rect") if isinstance(qrcode_meta, dict) else None
+            if not isinstance(rect, dict) or float(rect.get("width", 0)) < 120 or float(rect.get("height", 0)) < 120:
+                last_reason = "qrcode_too_small"
+                self._sleep(0.8, minimum_seconds=0.3)
+                continue
 
-        data_url = qrcode_meta.get("data_url")
-        if isinstance(data_url, str) and data_url.startswith("data:image/"):
-            header, _, encoded = data_url.partition(",")
-            mime_type = header[5:].split(";", 1)[0] if header.startswith("data:") else "image/png"
-            image_base64 = encoded
-            qrcode_data_url = data_url
-        else:
-            rect = qrcode_meta.get("rect")
-            if not isinstance(rect, dict):
-                raise CDPError("QR code rect is missing.")
-            image_base64 = self._capture_clip_png_base64(rect)
-            mime_type = "image/png"
-            qrcode_data_url = f"data:{mime_type};base64,{image_base64}"
+            data_url = qrcode_meta.get("data_url")
+            src = qrcode_meta.get("src")
+            candidate_b64 = ""
+            candidate_mime = "image/png"
+            candidate_data_url = ""
+
+            if isinstance(data_url, str) and data_url.startswith("data:image/"):
+                header, _, encoded = data_url.partition(",")
+                candidate_mime = header[5:].split(";", 1)[0] if header.startswith("data:") else "image/png"
+                candidate_b64 = encoded
+                candidate_data_url = data_url
+            elif isinstance(src, str) and src.startswith("data:image/"):
+                header, _, encoded = src.partition(",")
+                candidate_mime = header[5:].split(";", 1)[0] if header.startswith("data:") else "image/png"
+                candidate_b64 = encoded
+                candidate_data_url = src
+            elif isinstance(src, str) and src.startswith("http"):
+                try:
+                    import base64
+                    import requests as _requests
+
+                    resp = _requests.get(src, timeout=12)
+                    if resp.ok and len(resp.content) >= 1500:
+                        candidate_b64 = base64.b64encode(resp.content).decode("ascii")
+                        ctype = (resp.headers.get("content-type") or "image/png").split(";")[0]
+                        candidate_mime = ctype if ctype.startswith("image/") else "image/png"
+                        candidate_data_url = f"data:{candidate_mime};base64,{candidate_b64}"
+                except Exception:
+                    candidate_b64 = ""
+
+            if not candidate_b64:
+                candidate_b64 = self._capture_clip_png_base64(rect)
+                candidate_mime = "image/png"
+                candidate_data_url = f"data:{candidate_mime};base64,{candidate_b64}"
+
+            # Decorative icons are tiny; real QR screenshots are larger.
+            if len(candidate_b64) < 3500:
+                last_reason = "qrcode_image_too_small"
+                self._sleep(0.8, minimum_seconds=0.3)
+                continue
+
+            image_base64 = candidate_b64
+            mime_type = candidate_mime
+            qrcode_data_url = candidate_data_url
+            break
+
+        if not image_base64:
+            self._navigate("https://creator.xiaohongshu.com/login")
+            self._sleep(2.0, minimum_seconds=0.8)
+            raise CDPError(f"Failed to locate login QR code: {last_reason}")
 
         return {
             "logged_in": False,
@@ -1158,9 +1231,9 @@ class XiaohongshuPublisher:
             "qrcode_base64": image_base64,
             "qrcode_data_url": qrcode_data_url,
             "mime_type": mime_type,
-            "selector": qrcode_meta.get("selector", ""),
-            "tag_name": qrcode_meta.get("tag_name", ""),
-            "hint_text": qrcode_meta.get("hint_text", ""),
+            "selector": (qrcode_meta or {}).get("selector", ""),
+            "tag_name": (qrcode_meta or {}).get("tag_name", ""),
+            "hint_text": (qrcode_meta or {}).get("hint_text", ""),
         }
 
     # ------------------------------------------------------------------

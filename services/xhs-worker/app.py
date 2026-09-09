@@ -155,7 +155,8 @@ def login_start(body: LoginStart, authorization: str | None = Header(default=Non
                     text = text[:157] + "…"
                 _update_session(session_id, message=text)
 
-            result = xhs.login_qrcode(account=body.userId, wait_seconds=10.0, on_line=on_line)
+    try:
+        result = xhs.login_qrcode(account=body.userId, wait_seconds=25.0, on_line=on_line)
             qr = result.get("qrcode_data_url")
             if not qr and result.get("qrcode_base64"):
                 qr = f"data:image/png;base64,{result['qrcode_base64']}"
