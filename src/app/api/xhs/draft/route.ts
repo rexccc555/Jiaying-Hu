@@ -8,8 +8,13 @@ export const maxDuration = 60;
 const bodySchema = z.object({
   locale: z.enum(["zh", "en"]).default("zh"),
   regionId: z.string().optional(),
-  tripSummary: z.string().min(8).max(4000),
+  userIdea: z.string().max(2000).optional(),
+  tripSummary: z.string().max(4000).optional(),
   stopNames: z.array(z.string()).max(30).optional(),
+  previousTitle: z.string().max(40).optional(),
+  previousContent: z.string().max(2000).optional(),
+  previousTags: z.array(z.string()).max(10).optional(),
+  feedback: z.string().max(1000).optional(),
 });
 
 export async function POST(req: Request) {
@@ -27,8 +32,13 @@ export async function POST(req: Request) {
   const draft = await generateXhsDraft({
     locale,
     regionId: parsed.data.regionId,
+    userIdea: parsed.data.userIdea,
     tripSummary: parsed.data.tripSummary,
     stopNames: parsed.data.stopNames,
+    previousTitle: parsed.data.previousTitle,
+    previousContent: parsed.data.previousContent,
+    previousTags: parsed.data.previousTags,
+    feedback: parsed.data.feedback,
   });
   return NextResponse.json(draft);
 }

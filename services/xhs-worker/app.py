@@ -101,6 +101,12 @@ class LoginStart(BaseModel):
     locale: str = "zh"
 
 
+class ImagePayload(BaseModel):
+    filename: str = "img.jpg"
+    contentType: str = "image/jpeg"
+    data: str = ""
+
+
 class PublishBody(BaseModel):
     userId: str
     sessionBlob: str = ""
@@ -108,6 +114,7 @@ class PublishBody(BaseModel):
     content: str
     tags: list[str] = Field(default_factory=list)
     imageUrls: list[str] = Field(default_factory=list)
+    images: list[ImagePayload] = Field(default_factory=list)
     mode: str = "preview"
 
 
@@ -279,6 +286,40 @@ def _download_images(job_id: str, urls: list[str]) -> list[str]:
     return paths
 
 
+def _write_uploaded_images(job_id: str, images: list[ImagePayload]) -> list[str]:
+    import base64
+
+    ensure_data_dirs()
+    folder = UPLOAD_DIR / job_id
+    folder.mkdir(parents=True, exist_ok=True)
+    paths: list[str] = []
+    for i, item in enumerate(images[:9]):
+        raw = (item.data or "").strip()
+        if not raw:
+            continue
+        if "," in raw and raw.lower().startswith("data:"):
+            raw = raw.split(",", 1)[1]
+        try:
+            content = base64.b64decode(raw, validate=False)
+        except Exception:
+            continue
+        if len(content) < 200:
+            continue
+        ctype = (item.contentType or "").lower()
+        name = (item.filename or "").lower()
+        ext = ".jpg"
+        if "png" in ctype or name.endswith(".png"):
+            ext = ".png"
+        elif "webp" in ctype or name.endswith(".webp"):
+            ext = ".webp"
+        elif "gif" in ctype or name.endswith(".gif"):
+            ext = ".gif"
+        dest = folder / f"upload_{i}{ext}"
+        dest.write_bytes(content)
+        paths.append(str(dest))
+    return paths
+
+
 @app.post("/v1/jobs")
 def create_publish_job(body: PublishBody, authorization: str | None = Header(default=None)) -> dict[str, Any]:
     _auth(authorization)
@@ -296,12 +337,14 @@ def create_publish_job(body: PublishBody, authorization: str | None = Header(def
             "sessionBlob": body.sessionBlob,
         }
     )
-    images = _download_images(job["id"], body.imageUrls)
+    images = _write_uploaded_images(job["id"], body.images)
+    if not images:
+        images = _download_images(job["id"], body.imageUrls)
     job["video"] = None
     job["images"] = images
     if not images:
         set_status(job, "failed")
-        job["error"] = "没有可用配图，请重新生成草稿"
+        job["error"] = "没有可用配图，请先上传素材"
         save_job(job)
         return _public(job)
     save_job(job)

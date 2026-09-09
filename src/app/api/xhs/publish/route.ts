@@ -6,12 +6,19 @@ import { workerConfigured, workerFetch, workerUnavailableResponse } from "@/lib/
 
 export const maxDuration = 120;
 
+const imagePayloadSchema = z.object({
+  filename: z.string().max(120).default("img.jpg"),
+  contentType: z.string().max(80).default("image/jpeg"),
+  data: z.string().min(80).max(6_000_000),
+});
+
 const bodySchema = z.object({
   locale: z.enum(["zh", "en"]).default("zh"),
   title: z.string().min(1).max(40),
   content: z.string().min(1).max(2000),
   tags: z.array(z.string()).max(10).default([]),
   imageUrls: z.array(z.string().url()).max(18).default([]),
+  images: z.array(imagePayloadSchema).max(9).default([]),
   mode: z.enum(["preview", "confirm"]).default("preview"),
   jobId: z.string().optional(),
 });
@@ -55,6 +62,15 @@ export async function POST(req: Request) {
   }
 
   const { mode, jobId, ...draft } = parsed.data;
+  if (mode === "preview" && draft.images.length === 0 && draft.imageUrls.length === 0) {
+    return NextResponse.json(
+      {
+        error: "NO_IMAGES",
+        message: parsed.data.locale === "en" ? "Upload photos first" : "请先上传素材图",
+      },
+      { status: 400 },
+    );
+  }
 
   try {
     if (mode === "confirm") {
@@ -76,6 +92,7 @@ export async function POST(req: Request) {
         content: draft.content,
         tags: draft.tags,
         imageUrls: draft.imageUrls,
+        images: draft.images,
         mode: "preview",
       }),
     });

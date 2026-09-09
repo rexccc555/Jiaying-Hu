@@ -1,13 +1,13 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { SiteFooter } from "@/components/SiteFooter";
 import type { AppLocale } from "@/i18n/config";
 import { messages } from "@/i18n/messages";
 import { buildXhsDraftFromItinerary } from "@/lib/xhs-draft";
+import { compressImageFile, type CompressedImage } from "@/lib/xhs-compress-image";
 import type { GenerateResponse } from "@/lib/types";
 
 type Props = { locale: AppLocale };
@@ -16,18 +16,25 @@ type Draft = {
   title: string;
   content: string;
   tags: string[];
-  imageUrls: string[];
   usedOpenAI?: boolean;
 };
 
 const ITINERARY_KEY = "tao_xhs_itinerary";
+const MAX_MATERIALS = 9;
 
 export function XhsPublishClient({ locale }: Props) {
   const t = messages[locale].xhs;
   const searchParams = useSearchParams();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [materials, setMaterials] = useState<CompressedImage[]>([]);
+  const [userIdea, setUserIdea] = useState("");
+  const [feedback, setFeedback] = useState("");
   const [draft, setDraft] = useState<Draft | null>(null);
   const [generating, setGenerating] = useState(false);
   const [genError, setGenError] = useState<string | null>(null);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+
   const [bound, setBound] = useState(false);
   const [bindSessionId, setBindSessionId] = useState<string | null>(null);
   const [qr, setQr] = useState<string | null>(null);
@@ -64,6 +71,18 @@ export function XhsPublishClient({ locale }: Props) {
   useEffect(() => {
     void refreshBound();
   }, [refreshBound]);
+
+  useEffect(() => {
+    try {
+      const raw = sessionStorage.getItem(ITINERARY_KEY);
+      if (!raw) return;
+      const data = JSON.parse(raw) as GenerateResponse;
+      const fallback = buildXhsDraftFromItinerary(data, locale);
+      setUserIdea((prev) => prev || `${fallback.title}\n${fallback.content}`.slice(0, 500));
+    } catch {
+      /* ignore */
+    }
+  }, [locale]);
 
   useEffect(() => {
     if (!bindSessionId) return;
@@ -184,6 +203,13 @@ export function XhsPublishClient({ locale }: Props) {
     return () => window.clearInterval(id);
   }, [jobId]);
 
+  useEffect(() => {
+    return () => {
+      for (const m of materials) URL.revokeObjectURL(m.previewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only revoke on unmount
+  }, []);
+
   const loadSummary = useCallback((): { tripSummary: string; stopNames: string[]; regionId?: string } => {
     try {
       const raw = sessionStorage.getItem(ITINERARY_KEY);
@@ -209,24 +235,68 @@ export function XhsPublishClient({ locale }: Props) {
         stopNames: [],
       };
     }
-    return {
-      tripSummary:
-        locale === "zh"
-          ? "新西兰一日游/周末游行程，轻松可执行，带天气与路况核对。"
-          : "A runnable NZ day/weekend trip with weather and road checks.",
-      stopNames: [],
-    };
+    return { tripSummary: "", stopNames: [] };
   }, [locale, tripSummaryFromQuery.content, tripSummaryFromQuery.title]);
 
-  const generate = async () => {
+  const addFiles = async (files: FileList | File[]) => {
+    setUploadError(null);
+    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (!list.length) {
+      setUploadError(t.materialsTypeError);
+      return;
+    }
+    const room = MAX_MATERIALS - materials.length;
+    if (room <= 0) {
+      setUploadError(t.materialsMax);
+      return;
+    }
+    try {
+      const next = await Promise.all(list.slice(0, room).map((f) => compressImageFile(f)));
+      setMaterials((prev) => [...prev, ...next].slice(0, MAX_MATERIALS));
+    } catch {
+      setUploadError(t.materialsFail);
+    }
+  };
+
+  const removeMaterial = (id: string) => {
+    setMaterials((prev) => {
+      const target = prev.find((m) => m.id === id);
+      if (target) URL.revokeObjectURL(target.previewUrl);
+      return prev.filter((m) => m.id !== id);
+    });
+  };
+
+  const generate = async (mode: "fresh" | "revise") => {
+    if (!materials.length) {
+      setGenError(t.materialsRequired);
+      return;
+    }
+    if (mode === "revise" && !feedback.trim()) {
+      setGenError(t.feedbackRequired);
+      return;
+    }
     setGenerating(true);
     setGenError(null);
     try {
-      const payload = loadSummary();
+      const ctx = loadSummary();
       const res = await fetch("/api/xhs/draft", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale, ...payload }),
+        body: JSON.stringify({
+          locale,
+          userIdea: userIdea.trim() || undefined,
+          tripSummary: ctx.tripSummary || undefined,
+          stopNames: ctx.stopNames,
+          regionId: ctx.regionId,
+          ...(mode === "revise" && draft
+            ? {
+                previousTitle: draft.title,
+                previousContent: draft.content,
+                previousTags: draft.tags,
+                feedback: feedback.trim(),
+              }
+            : {}),
+        }),
       });
       const data = (await res.json()) as Draft & { error?: string };
       if (!res.ok) throw new Error(data.error || t.genFail);
@@ -234,26 +304,15 @@ export function XhsPublishClient({ locale }: Props) {
         title: data.title,
         content: data.content,
         tags: data.tags || [],
-        imageUrls: data.imageUrls || [],
         usedOpenAI: data.usedOpenAI,
       });
+      if (mode === "revise") setFeedback("");
     } catch (e) {
       setGenError(e instanceof Error ? e.message : t.genFail);
     } finally {
       setGenerating(false);
     }
   };
-
-  useEffect(() => {
-    try {
-      if (sessionStorage.getItem(ITINERARY_KEY)) {
-        void generate();
-      }
-    } catch {
-      /* ignore */
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- 仅挂载时自动生成
-  }, []);
 
   const startBind = async () => {
     setBinding(true);
@@ -270,7 +329,6 @@ export function XhsPublishClient({ locale }: Props) {
         sessionId?: string;
         guestId?: string;
         error?: string;
-        code?: string;
       };
       if (data.guestId) setGuestId(data.guestId);
       if (!res.ok) {
@@ -297,7 +355,7 @@ export function XhsPublishClient({ locale }: Props) {
   };
 
   const previewPublish = async () => {
-    if (!draft) return;
+    if (!draft || !materials.length) return;
     setPublishing(true);
     setJobLogs("");
     try {
@@ -310,7 +368,12 @@ export function XhsPublishClient({ locale }: Props) {
           title: draft.title,
           content: draft.content,
           tags: draft.tags,
-          imageUrls: draft.imageUrls,
+          imageUrls: [],
+          images: materials.map((m) => ({
+            filename: m.filename,
+            contentType: m.contentType,
+            data: m.data,
+          })),
           mode: "preview",
         }),
       });
@@ -353,7 +416,8 @@ export function XhsPublishClient({ locale }: Props) {
         title: draft?.title || "x",
         content: draft?.content || "x",
         tags: draft?.tags || [],
-        imageUrls: draft?.imageUrls || [],
+        imageUrls: [],
+        images: [],
         mode: "confirm",
         jobId,
       }),
@@ -375,37 +439,93 @@ export function XhsPublishClient({ locale }: Props) {
         <h1 className="mt-2 text-3xl font-bold tracking-tight text-slate-900">{t.title}</h1>
         <p className="mt-3 text-sm leading-relaxed text-slate-600">{t.ledeCloud}</p>
 
-        <button
-          type="button"
-          onClick={() => void generate()}
-          disabled={generating}
-          className="mt-8 flex w-full min-h-[3.25rem] items-center justify-center rounded-2xl bg-sky-600 px-6 py-4 text-base font-semibold text-white shadow-lg transition hover:bg-sky-700 disabled:opacity-60"
-        >
-          {generating ? t.generating : t.genCta}
-        </button>
-        {genError ? <p className="mt-2 text-sm text-rose-700">{genError}</p> : null}
+        <section className="mt-8 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
+          <h2 className="text-base font-bold text-slate-900">{t.materialsTitle}</h2>
+          <p className="mt-1 text-sm text-slate-600">{t.materialsHelp}</p>
+
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => {
+              if (e.target.files?.length) void addFiles(e.target.files);
+              e.target.value = "";
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+            onDrop={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              if (e.dataTransfer.files?.length) void addFiles(e.dataTransfer.files);
+            }}
+            className="mt-4 flex w-full min-h-[8rem] flex-col items-center justify-center rounded-2xl border border-dashed border-slate-300 bg-slate-50 px-4 py-6 text-sm text-slate-600 transition hover:border-sky-400 hover:bg-sky-50/60"
+          >
+            <span className="font-semibold text-slate-800">{t.materialsDrop}</span>
+            <span className="mt-1 text-xs text-slate-500">{t.materialsHint}</span>
+          </button>
+
+          {materials.length ? (
+            <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4">
+              {materials.map((m) => (
+                <div key={m.id} className="relative aspect-square overflow-hidden rounded-xl bg-slate-100">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={m.previewUrl} alt="" className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeMaterial(m.id)}
+                    className="absolute right-1 top-1 rounded-full bg-slate-900/75 px-2 py-0.5 text-[11px] font-semibold text-white"
+                  >
+                    {t.materialsRemove}
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          {uploadError ? <p className="mt-2 text-sm text-rose-700">{uploadError}</p> : null}
+
+          <label className="mt-5 block text-sm font-medium text-slate-800">
+            {t.ideaLabel}
+            <textarea
+              className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+              rows={4}
+              value={userIdea}
+              placeholder={t.ideaPlaceholder}
+              onChange={(e) => setUserIdea(e.target.value)}
+            />
+          </label>
+          <p className="mt-1 text-xs text-slate-500">{t.ideaOptional}</p>
+
+          <button
+            type="button"
+            onClick={() => void generate("fresh")}
+            disabled={generating || !materials.length}
+            className="mt-5 flex w-full min-h-[3.25rem] items-center justify-center rounded-2xl bg-sky-600 px-6 py-4 text-base font-semibold text-white shadow-lg transition hover:bg-sky-700 disabled:opacity-60"
+          >
+            {generating ? t.generating : t.genCta}
+          </button>
+          {genError ? <p className="mt-2 text-sm text-rose-700">{genError}</p> : null}
+        </section>
 
         {draft ? (
           <section className="mt-8 rounded-3xl border border-slate-200 bg-white/95 p-5 shadow-sm">
             <div className="flex items-start justify-between gap-3">
-              <h2 className="text-lg font-bold text-slate-900">{draft.title}</h2>
+              <h2 className="text-lg font-bold text-slate-900">{t.draftTitle}</h2>
               <span className="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-600">
                 {draft.usedOpenAI ? t.aiBadge : t.templateBadge}
               </span>
             </div>
             <pre className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">{draft.content}</pre>
-            <p className="mt-3 text-xs text-sky-800">
-              {draft.tags.map((tag) => `#${tag}`).join(" ")}
-            </p>
-            {draft.imageUrls.length ? (
-              <div className="mt-4 grid grid-cols-3 gap-2">
-                {draft.imageUrls.slice(0, 6).map((src) => (
-                  <div key={src} className="relative aspect-square overflow-hidden rounded-xl bg-slate-100">
-                    <Image src={src} alt="" fill className="object-cover" sizes="120px" unoptimized />
-                  </div>
-                ))}
-              </div>
-            ) : null}
+            <p className="mt-3 text-xs text-sky-800">{draft.tags.map((tag) => `#${tag}`).join(" ")}</p>
+
             <label className="mt-4 block text-sm font-medium text-slate-800">
               {t.editTitle}
               <input
@@ -424,22 +544,44 @@ export function XhsPublishClient({ locale }: Props) {
                 onChange={(e) => setDraft({ ...draft, content: e.target.value })}
               />
             </label>
+
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800"
+                onClick={async () => {
+                  try {
+                    await navigator.clipboard.writeText(
+                      `${draft.title}\n\n${draft.content}\n\n${draft.tags.map((tag) => `#${tag}`).join(" ")}`,
+                    );
+                    setCopied(true);
+                    window.setTimeout(() => setCopied(false), 2000);
+                  } catch {
+                    setCopied(false);
+                  }
+                }}
+              >
+                {copied ? t.copiedDraft : t.copyDraft}
+              </button>
+            </div>
+
+            <label className="mt-5 block text-sm font-medium text-slate-800">
+              {t.feedbackLabel}
+              <textarea
+                className="mt-1 w-full rounded-xl border border-slate-200 px-3 py-2 text-sm"
+                rows={3}
+                value={feedback}
+                placeholder={t.feedbackPlaceholder}
+                onChange={(e) => setFeedback(e.target.value)}
+              />
+            </label>
             <button
               type="button"
-              className="mt-3 rounded-full border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-800"
-              onClick={async () => {
-                try {
-                  await navigator.clipboard.writeText(
-                    `${draft.title}\n\n${draft.content}\n\n${draft.tags.map((t) => `#${t}`).join(" ")}`,
-                  );
-                  setCopied(true);
-                  window.setTimeout(() => setCopied(false), 2000);
-                } catch {
-                  setCopied(false);
-                }
-              }}
+              onClick={() => void generate("revise")}
+              disabled={generating || !materials.length}
+              className="mt-3 rounded-full bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
             >
-              {copied ? t.copiedDraft : t.copyDraft}
+              {generating ? t.generating : t.regenCta}
             </button>
           </section>
         ) : null}
@@ -503,7 +645,7 @@ export function XhsPublishClient({ locale }: Props) {
           <div className="mt-4 flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={!draft || !bound || publishing}
+              disabled={!draft || !materials.length || !bound || publishing}
               onClick={() => void previewPublish()}
               className="rounded-full bg-rose-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-rose-700 disabled:opacity-40"
             >

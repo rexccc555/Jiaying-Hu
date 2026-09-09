@@ -1047,6 +1047,89 @@ class XiaohongshuPublisher:
             raise CDPError("Failed to capture QR code screenshot.")
         return image_base64
 
+    def _ensure_qr_login_panel(self) -> bool:
+        """Switch creator login modal from SMS to QR scan when needed.
+
+        Xiaohongshu defaults to phone/SMS; the scannable QR only appears after
+        clicking the small QR icon on the login card (same as social-auto-upload).
+        """
+        state = self._evaluate(r"""
+            (() => {
+                const textOf = (n) => ((n && (n.innerText || n.textContent)) || "").replace(/\s+/g, " ").trim();
+                const body = textOf(document.body);
+                if (body.includes("扫一扫") || body.includes("APP扫一扫")) {
+                    return { ready: true, reason: "already_qr" };
+                }
+                const box =
+                    document.querySelector("div[class*='login-box']") ||
+                    document.querySelector(".login-container") ||
+                    document.querySelector("[class*='login']");
+                const candidates = [];
+                const push = (el, why) => {
+                    if (!(el instanceof HTMLElement)) return;
+                    const r = el.getBoundingClientRect();
+                    if (r.width < 12 || r.height < 12 || r.width > 96 || r.height > 96) return;
+                    const style = window.getComputedStyle(el);
+                    if (style.display === "none" || style.visibility === "hidden") return;
+                    candidates.push({
+                        x: r.x + r.width / 2,
+                        y: r.y + r.height / 2,
+                        why,
+                        w: r.width,
+                        h: r.height,
+                    });
+                };
+                // Known class from creator login switch icon.
+                document.querySelectorAll("img.css-wemwzq, img[class*='wemwzq']").forEach((el) => push(el, "css-wemwzq"));
+                const scope = box || document.body;
+                scope.querySelectorAll("img, svg, [class*='qr'], [class*='QR'], [class*='scan']").forEach((el) => {
+                    const cls = String(el.className || "").toLowerCase();
+                    const src = el instanceof HTMLImageElement ? (el.currentSrc || el.src || "") : "";
+                    if (cls.includes("qr") || src.includes("qr") || el.tagName === "SVG") {
+                        push(el, "qr-ish");
+                    }
+                });
+                // Fallback: top-right corner control inside the login card.
+                if (!candidates.length && box) {
+                    const br = box.getBoundingClientRect();
+                    const hits = box.querySelectorAll("img, svg, i, span, div");
+                    for (const el of hits) {
+                        if (!(el instanceof HTMLElement)) continue;
+                        const r = el.getBoundingClientRect();
+                        if (r.width < 16 || r.height < 16 || r.width > 64 || r.height > 64) continue;
+                        if (r.right < br.right - 80 || r.top > br.top + 80) continue;
+                        push(el, "top-right");
+                    }
+                }
+                if (!candidates.length) return { ready: false, reason: "switch_not_found" };
+                // Prefer known class, then smaller icons (toggle), then top-right.
+                candidates.sort((a, b) => {
+                    const rank = (c) => (c.why === "css-wemwzq" ? 0 : c.why === "qr-ish" ? 1 : 2);
+                    const d = rank(a) - rank(b);
+                    if (d !== 0) return d;
+                    return a.w * a.h - b.w * b.h;
+                });
+                return { ready: false, reason: "need_click", click: candidates[0] };
+            })()
+        """)
+        if not isinstance(state, dict):
+            return False
+        if state.get("ready"):
+            return True
+        click = state.get("click") if isinstance(state.get("click"), dict) else None
+        if not click:
+            return False
+        try:
+            self._click_mouse(float(click["x"]), float(click["y"]))
+            self._sleep(1.2, minimum_seconds=0.5)
+        except Exception:
+            return False
+        check = self._evaluate(
+            "(() => { const t = (document.body.innerText || '').replace(/\\s+/g, ' ');"
+            " return t.includes('扫一扫') || t.includes('APP扫一扫'); })()"
+        )
+        return bool(check)
+
     def _locate_login_qrcode(self) -> dict[str, Any]:
         """Return visible QR code metadata from current login page when possible."""
         result = self._evaluate(r"""
@@ -1076,11 +1159,12 @@ class XiaohongshuPublisher:
                     const nearby = normalize(
                         (node.parentElement && (node.parentElement.innerText || node.parentElement.textContent)) || ""
                     );
-                    if (nearby.includes("扫码") || nearby.includes("登录")) score += 30;
+                    if (nearby.includes("扫码") || nearby.includes("扫一扫") || nearby.includes("登录")) score += 30;
                     return score;
                 };
 
                 const selectors = [
+                    ".login-box-container img",
                     ".login-container .qrcode-img",
                     "img.qrcode-img",
                     "img[src*='qrcode']",
@@ -1161,7 +1245,15 @@ class XiaohongshuPublisher:
         qrcode_data_url = ""
         qrcode_meta: dict[str, Any] | None = None
 
+        # Default UI is SMS login; switch to QR panel before searching.
+        try:
+            self._ensure_qr_login_panel()
+        except Exception:
+            pass
+
         while time.time() < deadline:
+            if not self._ensure_qr_login_panel():
+                last_reason = "qr_panel_not_ready"
             qrcode_meta = self._locate_login_qrcode()
             if not qrcode_meta.get("ok"):
                 last_reason = str(qrcode_meta.get("reason") or "qrcode_not_found")
@@ -1221,8 +1313,39 @@ class XiaohongshuPublisher:
             break
 
         if not image_base64:
-            # Datacenter/headless pages often hide DOM QR; fall back to a large viewport shot
-            # so the user can still scan if the code is painted on screen.
+            # Prefer cropping the login card after switching to QR mode.
+            try:
+                self._ensure_qr_login_panel()
+                box_rect = self._evaluate(r"""
+                    (() => {
+                        const box =
+                            document.querySelector("div[class*='login-box']") ||
+                            document.querySelector(".login-container");
+                        if (!box) return null;
+                        const r = box.getBoundingClientRect();
+                        if (r.width < 200 || r.height < 200) return null;
+                        return { x: r.x, y: r.y, width: r.width, height: r.height };
+                    })()
+                """)
+                if isinstance(box_rect, dict):
+                    image_base64 = self._capture_clip_png_base64(box_rect)
+                    if image_base64 and len(image_base64) >= 3500:
+                        mime_type = "image/png"
+                        qrcode_data_url = f"data:{mime_type};base64,{image_base64}"
+                        return {
+                            "logged_in": False,
+                            "current_url": current_url,
+                            "qrcode_base64": image_base64,
+                            "qrcode_data_url": qrcode_data_url,
+                            "mime_type": mime_type,
+                            "selector": "login-box-fallback",
+                            "tag_name": "screenshot",
+                            "hint_text": "login-box",
+                            "message": "请用小红书 App 扫图中的登录码。",
+                        }
+            except Exception:
+                pass
+            # Last resort: full viewport (only useful if QR panel actually rendered).
             try:
                 self._send("Page.enable")
                 shot = self._send(
@@ -1243,7 +1366,7 @@ class XiaohongshuPublisher:
                         "selector": "viewport-fallback",
                         "tag_name": "screenshot",
                         "hint_text": "viewport",
-                        "message": "已截取登录页，请在图中找到二维码扫码。",
+                        "message": "已截取登录页，请确认已是「扫一扫」界面后再扫码。",
                     }
             except Exception:
                 pass
