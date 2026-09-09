@@ -5,10 +5,12 @@ Take a Day Off · 小红书云端发布 Worker
 
 from __future__ import annotations
 
+import json
 import os
 import secrets
 import threading
 import time
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -33,6 +35,50 @@ from cutpost.service import confirm_xhs_job, run_preview_job  # noqa: E402
 
 WORKER_SECRET = os.environ.get("XHS_WORKER_SECRET", "").strip()
 LOGIN_SESSIONS: dict[str, dict[str, Any]] = {}
+_SESS_LOCK = threading.Lock()
+SESSION_DIR = Path(os.environ.get("XHS_SESSION_DIR", "/tmp/xhs-login-sessions"))
+
+
+def _sess_path(session_id: str) -> Path:
+    safe = "".join(c for c in session_id if c.isalnum() or c in "-_")
+    return SESSION_DIR / f"{safe}.json"
+
+
+def _save_session(session_id: str, data: dict[str, Any]) -> None:
+    SESSION_DIR.mkdir(parents=True, exist_ok=True)
+    payload = {**data}
+    path = _sess_path(session_id)
+    path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+
+def _load_session(session_id: str) -> dict[str, Any] | None:
+    with _SESS_LOCK:
+        mem = LOGIN_SESSIONS.get(session_id)
+        if mem is not None:
+            return mem
+    path = _sess_path(session_id)
+    if not path.is_file():
+        return None
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        if isinstance(data, dict):
+            with _SESS_LOCK:
+                LOGIN_SESSIONS[session_id] = data
+            return data
+    except Exception:
+        return None
+    return None
+
+
+def _update_session(session_id: str, **fields: Any) -> None:
+    with _SESS_LOCK:
+        sess = LOGIN_SESSIONS.setdefault(session_id, {})
+        sess.update(fields)
+        snapshot = dict(sess)
+    try:
+        _save_session(session_id, snapshot)
+    except Exception:
+        pass
 
 app = FastAPI(title="Take a Day Off XHS Worker", version="0.1.0")
 app.add_middleware(
@@ -85,32 +131,44 @@ def login_start(body: LoginStart, authorization: str | None = Header(default=Non
     if not xhs.available():
         raise HTTPException(503, "Xiaohongshu engine not available in this container")
     session_id = secrets.token_urlsafe(16)
-    LOGIN_SESSIONS[session_id] = {
-        "userId": body.userId,
-        "created": time.time(),
-        "logged_in": False,
-        "qrcode_data_url": None,
-        "message": "starting",
-        "sessionBlob": "",
-    }
+    _update_session(
+        session_id,
+        userId=body.userId,
+        created=time.time(),
+        logged_in=False,
+        qrcode_data_url=None,
+        message="正在打开浏览器获取二维码…",
+        sessionBlob="",
+        error=None,
+    )
 
     def run() -> None:
         try:
-            result = xhs.login_qrcode(account=body.userId)
-            LOGIN_SESSIONS[session_id].update(
-                {
-                    "logged_in": bool(result.get("logged_in")),
-                    "qrcode_data_url": result.get("qrcode_data_url"),
-                    "message": result.get("message") or "",
-                    "sessionBlob": result.get("session_blob") or result.get("account") or body.userId,
-                }
+            _update_session(session_id, message="正在启动 Chrome…")
+            result = xhs.login_qrcode(account=body.userId, wait_seconds=8.0)
+            qr = result.get("qrcode_data_url")
+            if not qr and result.get("qrcode_base64"):
+                qr = f"data:image/png;base64,{result['qrcode_base64']}"
+            _update_session(
+                session_id,
+                logged_in=bool(result.get("logged_in")),
+                qrcode_data_url=qr,
+                message=result.get("message") or "",
+                sessionBlob=result.get("session_blob") or result.get("account") or body.userId,
+                error=None,
             )
         except xhs.XhsError as exc:
-            LOGIN_SESSIONS[session_id]["error"] = str(exc)
-            LOGIN_SESSIONS[session_id]["message"] = str(exc)
+            _update_session(session_id, error=str(exc), message=str(exc))
+        except Exception as exc:
+            _update_session(
+                session_id,
+                error=str(exc),
+                message=f"获取二维码失败：{exc}",
+            )
+            print(f"[login] unexpected error:\n{traceback.format_exc()}", flush=True)
 
     threading.Thread(target=run, daemon=True).start()
-    return {"sessionId": session_id, "status": "pending"}
+    return {"sessionId": session_id, "status": "pending", "guestId": body.userId}
 
 
 @app.get("/v1/login/status")
@@ -120,20 +178,40 @@ def login_status(
     authorization: str | None = Header(default=None),
 ) -> dict[str, Any]:
     _auth(authorization)
-    sess = LOGIN_SESSIONS.get(sessionId)
-    if not sess or sess.get("userId") != userId:
-        raise HTTPException(404, "session not found")
+    sess = _load_session(sessionId)
+    if not sess:
+        return {
+            "logged_in": False,
+            "qrcode_data_url": None,
+            "message": "绑定会话不存在或已过期，请重新点扫码绑定",
+            "error": "session_not_found",
+            "sessionBlob": None,
+        }
+    if sess.get("userId") and sess.get("userId") != userId:
+        return {
+            "logged_in": False,
+            "qrcode_data_url": None,
+            "message": "访客身份不匹配，请重新点扫码绑定",
+            "error": "user_mismatch",
+            "sessionBlob": None,
+        }
 
     # Refresh login check if QR already shown
-    if not sess.get("logged_in") and xhs.available():
+    if not sess.get("logged_in") and xhs.available() and sess.get("qrcode_data_url"):
         try:
             check = xhs.check_login(force=True, account=userId)
             if check.get("logged_in"):
-                sess["logged_in"] = True
-                sess["sessionBlob"] = sess.get("sessionBlob") or userId
-                sess["message"] = check.get("message") or "logged in"
+                _update_session(
+                    sessionId,
+                    logged_in=True,
+                    sessionBlob=sess.get("sessionBlob") or userId,
+                    message=check.get("message") or "已登录",
+                    error=None,
+                )
+                sess = _load_session(sessionId) or sess
         except xhs.XhsError as exc:
-            sess["error"] = str(exc)
+            _update_session(sessionId, error=str(exc))
+            sess = _load_session(sessionId) or sess
 
     return {
         "logged_in": bool(sess.get("logged_in")),

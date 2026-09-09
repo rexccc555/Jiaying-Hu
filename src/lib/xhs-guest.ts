@@ -12,14 +12,25 @@ function cookieSecure(): boolean {
   return process.env.NODE_ENV === "production";
 }
 
+export function isValidXhsGuestId(id: string | null | undefined): id is string {
+  return Boolean(id && /^g_[a-f0-9]{20,80}$/i.test(id.trim()));
+}
+
 /** 浏览器访客 ID（不要求本站登录）；用于 Worker 账号隔离 */
-export async function getOrCreateXhsGuestId(): Promise<{ id: string; isNew: boolean }> {
+export async function getOrCreateXhsGuestId(
+  preferred?: string | null,
+): Promise<{ id: string; needsSet: boolean }> {
+  if (isValidXhsGuestId(preferred)) {
+    const jar = await cookies();
+    const existing = jar.get(XHS_GUEST_COOKIE)?.value?.trim();
+    return { id: preferred.trim(), needsSet: existing !== preferred.trim() };
+  }
   const jar = await cookies();
   const existing = jar.get(XHS_GUEST_COOKIE)?.value?.trim();
-  if (existing && existing.length >= 8 && existing.length <= 80) {
-    return { id: existing, isNew: false };
+  if (isValidXhsGuestId(existing)) {
+    return { id: existing, needsSet: false };
   }
-  return { id: `g_${randomBytes(16).toString("hex")}`, isNew: true };
+  return { id: `g_${randomBytes(16).toString("hex")}`, needsSet: true };
 }
 
 export async function readXhsEncryptedSession(): Promise<string | null> {

@@ -33,6 +33,7 @@ export function XhsPublishClient({ locale }: Props) {
   const [qr, setQr] = useState<string | null>(null);
   const [bindMsg, setBindMsg] = useState<string | null>(null);
   const [binding, setBinding] = useState(false);
+  const [guestId, setGuestId] = useState<string | null>(null);
   const [jobId, setJobId] = useState<string | null>(null);
   const [jobStatus, setJobStatus] = useState<string | null>(null);
   const [jobStatusCode, setJobStatusCode] = useState<string | null>(null);
@@ -49,13 +50,15 @@ export function XhsPublishClient({ locale }: Props) {
 
   const refreshBound = useCallback(async () => {
     try {
-      const res = await fetch("/api/xhs/bind", { credentials: "include" });
-      const data = (await res.json()) as { bound?: boolean };
+      const q = guestId ? `?guestId=${encodeURIComponent(guestId)}` : "";
+      const res = await fetch(`/api/xhs/bind${q}`, { credentials: "include" });
+      const data = (await res.json()) as { bound?: boolean; guestId?: string };
       setBound(Boolean(data.bound));
+      if (data.guestId) setGuestId(data.guestId);
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [guestId]);
 
   useEffect(() => {
     void refreshBound();
@@ -64,19 +67,24 @@ export function XhsPublishClient({ locale }: Props) {
   useEffect(() => {
     if (!bindSessionId) return;
     let tries = 0;
-    const id = window.setInterval(() => {
+    let cancelled = false;
+
+    const poll = async () => {
+      if (cancelled) return;
       tries += 1;
-      void (async () => {
-        const res = await fetch(`/api/xhs/bind?sessionId=${encodeURIComponent(bindSessionId)}`, {
-          credentials: "include",
-        });
+      try {
+        const qs = new URLSearchParams({ sessionId: bindSessionId });
+        if (guestId) qs.set("guestId", guestId);
+        const res = await fetch(`/api/xhs/bind?${qs.toString()}`, { credentials: "include" });
         const data = (await res.json()) as {
           status?: string;
           bound?: boolean;
+          guestId?: string;
           qrcode_data_url?: string;
           message?: string;
           error?: string;
         };
+        if (data.guestId) setGuestId(data.guestId);
         if (data.qrcode_data_url) setQr(data.qrcode_data_url);
         if (data.message) setBindMsg(data.message);
         if (data.error) setBindMsg(data.error);
@@ -84,16 +92,38 @@ export function XhsPublishClient({ locale }: Props) {
           setBound(true);
           setBinding(false);
           setBindSessionId(null);
-          window.clearInterval(id);
+          return true;
         }
-      })();
-      if (tries >= 40) {
-        window.clearInterval(id);
-        setBinding(false);
+        if (data.status === "error" || data.error === "session_not_found" || data.error === "user_mismatch") {
+          setBinding(false);
+          setBindSessionId(null);
+          setBindMsg(data.error || data.message || t.bindFail);
+          return true;
+        }
+      } catch (e) {
+        setBindMsg(e instanceof Error ? e.message : t.bindFail);
       }
-    }, 3000);
-    return () => window.clearInterval(id);
-  }, [bindSessionId]);
+      if (tries >= 60) {
+        setBinding(false);
+        setBindSessionId(null);
+        setBindMsg(t.bindTimeout);
+        return true;
+      }
+      return false;
+    };
+
+    void poll();
+    const id = window.setInterval(() => {
+      void (async () => {
+        const done = await poll();
+        if (done) window.clearInterval(id);
+      })();
+    }, 2000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, [bindSessionId, guestId, t.bindFail, t.bindTimeout]);
 
   useEffect(() => {
     if (!jobId) return;
@@ -193,26 +223,34 @@ export function XhsPublishClient({ locale }: Props) {
 
   const startBind = async () => {
     setBinding(true);
-    setBindMsg(null);
+    setBindMsg(t.bindingHint);
     setQr(null);
     try {
       const res = await fetch("/api/xhs/bind", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ locale }),
+        body: JSON.stringify({ locale, guestId }),
       });
       const data = (await res.json()) as {
         sessionId?: string;
+        guestId?: string;
         error?: string;
         code?: string;
       };
+      if (data.guestId) setGuestId(data.guestId);
       if (!res.ok) {
         setBindMsg(data.error || t.bindFail);
         setBinding(false);
         return;
       }
-      if (data.sessionId) setBindSessionId(data.sessionId);
+      if (data.sessionId) {
+        setBindSessionId(data.sessionId);
+        setBindMsg(t.bindingHint);
+      } else {
+        setBindMsg(t.bindFail);
+        setBinding(false);
+      }
     } catch (e) {
       setBindMsg(e instanceof Error ? e.message : t.bindFail);
       setBinding(false);
