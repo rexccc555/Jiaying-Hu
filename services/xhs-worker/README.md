@@ -50,7 +50,8 @@ XHS_SESSION_CRYPTO_KEY=dev-crypto-key-16+
 1. Root Directory 留空（仓库根），Dockerfile 路径设为 `services/xhs-worker/Dockerfile`
 2. 配置 `XHS_WORKER_SECRET`
 3. 健康检查：`GET /health`
-4. 把公网 URL 填进 Netlify 的 `XHS_WORKER_URL`
+4. 公网域名的 **Target Port** 必须等于容器内 `$PORT`（Railway 常为 `8080`），不要填 Dockerfile 里的 `EXPOSE 8787`
+5. 把公网 URL 填进 Netlify 的 `XHS_WORKER_URL`
 
 ## 产品路径
 
