@@ -57,6 +57,45 @@ body {
   }
 }
 
+.lng-marker {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  padding: 2px 6px;
+  border-radius: 4px;
+  border: 1px solid rgba(71, 85, 105, 0.8);
+  background: rgba(15, 23, 42, 0.85);
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lng-marker-on {
+  border-color: rgba(163, 230, 53, 0.8);
+  background: rgba(163, 230, 53, 0.2);
+  color: #ecfccb;
+  box-shadow: 0 0 14px rgba(163, 230, 53, 0.5);
+}
+
+.leaflet-container {
+  background: #070b14 !important;
+  font-family: inherit !important;
+}
+
+.lng-tiles {
+  filter: invert(1) hue-rotate(180deg) brightness(0.85) contrast(0.9) saturate(0.6);
+}
+
+.leaflet-control-attribution {
+  background: rgba(7, 11, 20, 0.7) !important;
+  color: #64748b !important;
+}
+
+.leaflet-control-attribution a {
+  color: #94a3b8 !important;
+}
+
 @keyframes pulse-dot {
   0%,
   100% {

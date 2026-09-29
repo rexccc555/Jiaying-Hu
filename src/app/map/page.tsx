@@ -12,8 +12,8 @@ export default function MapPage() {
     <main className="mx-auto max-w-5xl px-4 pb-8 pt-8">
       <SectionTitle
         kicker={`WORLD MAP · ${p.unlockedRegions}/${p.totalRegions}`}
-        title="开放世界地图：新西兰"
-        desc={`已探索 ${p.mapPercent}%。起初只有奥克兰被点亮，其他地方都在战争迷雾中。每去一个新地方，地图就更新一次。`}
+        title="开放世界地图：奥克兰服务器"
+        desc={`已探索 ${p.mapPercent}%。玩家在惠灵顿山醒来，其他地方都还在战争迷雾里。每去一个新地方，迷雾就被驱散一块。`}
       />
       <WorldMap regions={regions} quests={quests} stories={stories} />
     </main>

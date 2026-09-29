@@ -3,7 +3,7 @@
  *
  * 你只需要改这个文件来「结算」：
  * - 完成任务：把对应 quest 的 status 改成 "done"，填上 date（和视频链接），经验值会自动累加、等级自动计算。
- * - 点亮地图：把 region 的 unlocked 改成 true，并填 firstVisit / note。
+ * - 点亮地图：把 region 的 unlocked 改成 true，并填 firstVisit / note（新地点照格式加一条，带经纬度）。
  * - 解锁技能 / 成就：把 status / unlocked 改掉即可。
  * - 发新故事：在 stories 顶部加一条。
  * - 开新一轮投票：改 voteRound 的 id（每轮唯一）和 options。
@@ -35,9 +35,9 @@ export type Region = {
   id: string;
   name: string;
   nameEn: string;
-  island: "north" | "south";
-  row: number;
-  col: number;
+  lat: number;
+  lng: number;
+  radius: number;
   unlocked: boolean;
   firstVisit?: string;
   note?: string;
@@ -145,9 +145,9 @@ export const quests: Quest[] = [
     difficulty: 1,
     xp: 100,
     status: "active",
-    desc: "拉开窗帘，换好衣服，走出房间。出个门也能升级。",
+    desc: "在惠灵顿山醒来。拉开窗帘，换好衣服，走出房间。出个门也能升级。",
     episode: "EP01",
-    regionId: "auckland",
+    regionId: "mt-wellington",
     statGain: { drive: 2 },
   },
   {
@@ -160,7 +160,6 @@ export const quests: Quest[] = [
     status: "todo",
     desc: "以前跑两百米就觉得自己不行了。这次目标：1 公里，不许停。",
     episode: "EP01",
-    regionId: "auckland",
     statGain: { stamina: 1 },
   },
   {
@@ -173,7 +172,6 @@ export const quests: Quest[] = [
     status: "todo",
     desc: "最不想打的一个怪。站在点餐台前，不许用手指着菜单说 this one。",
     episode: "EP01",
-    regionId: "auckland",
     statGain: { social: 1, english: 1 },
   },
   {
@@ -186,7 +184,6 @@ export const quests: Quest[] = [
     status: "todo",
     desc: "什么都不做，就坐着看太阳落下去。隐藏任务：好好生活。",
     episode: "EP01",
-    regionId: "auckland",
   },
   {
     id: "005",
@@ -198,7 +195,6 @@ export const quests: Quest[] = [
     status: "todo",
     desc: "挑战一个「有钱人的副本」。预计结果：疯狂挥空，钱包 -30。",
     episode: "EP02",
-    regionId: "auckland",
     statGain: { stamina: 1 },
   },
   {
@@ -222,7 +218,6 @@ export const quests: Quest[] = [
     status: "todo",
     desc: "用 20 纽币解决三餐。超市采购、做饭、预算管理，全部算进游戏。",
     episode: "EP04",
-    regionId: "auckland",
   },
 ];
 
@@ -263,38 +258,41 @@ export const voteRound = {
 
 /* ───────────────────────── 地图 ───────────────────────── */
 
+/**
+ * 奥克兰服务器地图。lat/lng 是区域中心，radius 是驱散迷雾的半径（米）。
+ * 新去一个地方：把 unlocked 改成 true；不在列表里的地方，照格式加一条即可。
+ */
 export const regions: Region[] = [
-  { id: "northland", name: "北部地区", nameEn: "Northland", island: "north", row: 1, col: 3, unlocked: false },
   {
-    id: "auckland",
-    name: "奥克兰",
-    nameEn: "Auckland",
-    island: "north",
-    row: 2,
-    col: 3,
+    id: "mt-wellington",
+    name: "惠灵顿山",
+    nameEn: "Mt Wellington · Maungarei",
+    lat: -36.8932,
+    lng: 174.8425,
+    radius: 1500,
     unlocked: true,
     firstVisit: "出生点",
-    note: "新手村。所有故事从这里开始。",
+    note: "新手村。玩家在这里醒来，第一集从这里出门。",
   },
-  { id: "coromandel", name: "科罗曼德", nameEn: "Coromandel", island: "north", row: 2, col: 4, unlocked: false },
-  { id: "waikato", name: "怀卡托", nameEn: "Waikato", island: "north", row: 3, col: 3, unlocked: false },
-  { id: "rotorua", name: "罗托鲁瓦", nameEn: "Rotorua · BOP", island: "north", row: 3, col: 4, unlocked: false },
-  { id: "gisborne", name: "吉斯伯恩", nameEn: "Gisborne", island: "north", row: 3, col: 5, unlocked: false },
-  { id: "taranaki", name: "塔拉纳基", nameEn: "Taranaki", island: "north", row: 4, col: 2, unlocked: false },
-  { id: "taupo", name: "陶波", nameEn: "Taupō", island: "north", row: 4, col: 3, unlocked: false },
-  { id: "hawkes-bay", name: "霍克斯湾", nameEn: "Hawke's Bay", island: "north", row: 4, col: 4, unlocked: false },
-  { id: "manawatu", name: "马纳瓦图", nameEn: "Manawatū", island: "north", row: 5, col: 3, unlocked: false },
-  { id: "wellington", name: "惠灵顿", nameEn: "Wellington", island: "north", row: 6, col: 3, unlocked: false },
-  { id: "nelson", name: "尼尔森", nameEn: "Nelson Tasman", island: "south", row: 7, col: 2, unlocked: false },
-  { id: "marlborough", name: "马尔堡", nameEn: "Marlborough", island: "south", row: 7, col: 3, unlocked: false },
-  { id: "west-coast", name: "西海岸", nameEn: "West Coast", island: "south", row: 8, col: 1, unlocked: false },
-  { id: "kaikoura", name: "凯库拉", nameEn: "Kaikōura", island: "south", row: 8, col: 3, unlocked: false },
-  { id: "mt-cook", name: "库克山", nameEn: "Aoraki", island: "south", row: 9, col: 1, unlocked: false },
-  { id: "christchurch", name: "基督城", nameEn: "Christchurch", island: "south", row: 9, col: 2, unlocked: false },
-  { id: "queenstown", name: "皇后镇", nameEn: "Queenstown", island: "south", row: 10, col: 1, unlocked: false },
-  { id: "dunedin", name: "但尼丁", nameEn: "Dunedin", island: "south", row: 10, col: 2, unlocked: false },
-  { id: "fiordland", name: "峡湾", nameEn: "Fiordland", island: "south", row: 11, col: 1, unlocked: false },
-  { id: "southland", name: "南地", nameEn: "Southland", island: "south", row: 11, col: 2, unlocked: false },
+  { id: "ellerslie", name: "埃勒斯利", nameEn: "Ellerslie", lat: -36.8985, lng: 174.8085, radius: 1000, unlocked: false },
+  { id: "panmure", name: "潘穆尔", nameEn: "Panmure", lat: -36.9005, lng: 174.8575, radius: 1000, unlocked: false },
+  { id: "sylvia-park", name: "西尔维亚公园", nameEn: "Sylvia Park", lat: -36.9165, lng: 174.8415, radius: 800, unlocked: false },
+  { id: "mission-bay", name: "使命湾", nameEn: "Mission Bay", lat: -36.8485, lng: 174.8335, radius: 1000, unlocked: false },
+  { id: "newmarket", name: "新市场", nameEn: "Newmarket", lat: -36.8695, lng: 174.7775, radius: 900, unlocked: false },
+  { id: "mt-eden", name: "伊甸山", nameEn: "Mt Eden · Maungawhau", lat: -36.8775, lng: 174.7645, radius: 900, unlocked: false },
+  { id: "cbd", name: "奥克兰市中心", nameEn: "Auckland CBD", lat: -36.8485, lng: 174.7633, radius: 1200, unlocked: false },
+  { id: "ponsonby", name: "庞森比", nameEn: "Ponsonby", lat: -36.8545, lng: 174.7435, radius: 900, unlocked: false },
+  { id: "one-tree-hill", name: "独树山", nameEn: "One Tree Hill · Maungakiekie", lat: -36.9, lng: 174.7835, radius: 900, unlocked: false },
+  { id: "onehunga", name: "奥尼杭格", nameEn: "Onehunga", lat: -36.9235, lng: 174.785, radius: 1000, unlocked: false },
+  { id: "devonport", name: "德文港", nameEn: "Devonport", lat: -36.8295, lng: 174.797, radius: 1000, unlocked: false },
+  { id: "takapuna", name: "塔卡普纳", nameEn: "Takapuna", lat: -36.788, lng: 174.77, radius: 1200, unlocked: false },
+  { id: "howick", name: "豪威克", nameEn: "Howick", lat: -36.8995, lng: 174.93, radius: 1200, unlocked: false },
+  { id: "botany", name: "博塔尼", nameEn: "Botany", lat: -36.93, lng: 174.912, radius: 1000, unlocked: false },
+  { id: "manukau", name: "马努考", nameEn: "Manukau", lat: -36.993, lng: 174.88, radius: 1400, unlocked: false },
+  { id: "henderson", name: "亨德森", nameEn: "Henderson", lat: -36.879, lng: 174.631, radius: 1400, unlocked: false },
+  { id: "albany", name: "奥尔巴尼", nameEn: "Albany", lat: -36.728, lng: 174.696, radius: 1400, unlocked: false },
+  { id: "piha", name: "皮哈海滩", nameEn: "Piha", lat: -36.954, lng: 174.469, radius: 1500, unlocked: false },
+  { id: "waiheke", name: "激流岛", nameEn: "Waiheke Island", lat: -36.8, lng: 175.08, radius: 3500, unlocked: false },
 ];
 
 /* ───────────────────────── 技能树 ───────────────────────── */
@@ -354,8 +352,8 @@ export const skillTree: SkillBranch[] = [
     nodes: [
       { id: "ex-1", title: "离开安全区", desc: "走出房间。", status: "active", questId: "001" },
       { id: "ex-2", title: "发现秘密观景点", desc: "一条从没走过的徒步线。", status: "locked", questId: "006" },
-      { id: "ex-3", title: "解锁第一个新地区", desc: "离开奥克兰服务器。", status: "locked" },
-      { id: "ex-4", title: "南岛大型地图更新", desc: "一次长途旅行。", status: "locked" },
+      { id: "ex-3", title: "解锁第一个新地区", desc: "走出惠灵顿山新手村。", status: "locked" },
+      { id: "ex-4", title: "驱散半个奥克兰的迷雾", desc: "点亮地图上一半的区域。", status: "locked" },
     ],
   },
 ];
@@ -414,7 +412,7 @@ export const stories: Story[] = [
     title: "开服公告：人生重新开服",
     body:
       "不知道你有没有过这种感觉：每天一睁眼，就不知道自己要干嘛。\n\n后来我想，既然人生这么无聊，那为什么不把它当成游戏玩？\n\n从今天开始，我把自己在新西兰的生活当成一个开放世界游戏。每完成一件现实里的小事，就结算一次经验值。成功会记下来，失败也会记下来——失败有专门的图鉴。\n\n这里是游戏大厅。你可以随时回来看看我升级了没有，也可以去任务大厅给我派任务。",
-    regionId: "auckland",
+    regionId: "mt-wellington",
   },
 ];
 
