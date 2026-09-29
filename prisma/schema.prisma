@@ -35,6 +35,31 @@ model SavedTrip {
   @@index([userId])
 }
 
+/** 人生重新开服：观众投票（每轮每个访客一票） */
+model QuestVote {
+  id        String   @id @default(cuid())
+  roundId   String
+  optionId  String
+  voterId   String
+  ipHash    String
+  createdAt DateTime @default(now())
+
+  @@unique([roundId, voterId])
+  @@index([roundId, ipHash])
+}
+
+/** 人生重新开服：观众投稿任务（人工筛选后进入投票池） */
+model QuestSubmission {
+  id        String   @id @default(cuid())
+  text      String
+  nickname  String?
+  ipHash    String
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+
+  @@index([ipHash, createdAt])
+}
+
 /** 小红书云端代发：加密后的创作者会话（由 Worker 写入） */
 model XhsBinding {
   id               String   @id @default(cuid())

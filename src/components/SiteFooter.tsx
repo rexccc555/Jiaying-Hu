@@ -1,46 +1,26 @@
-import Link from "next/link";
-import type { AppLocale } from "@/i18n/config";
-import { messages } from "@/i18n/messages";
+import { player } from "@/data/game";
 
-export function SiteFooter({ locale }: { locale: AppLocale }) {
-  const t = messages[locale];
-
+export function SiteFooter() {
+  const socials = player.socials.filter((s) => s.url);
   return (
-    <footer className="mt-20 border-t border-white/40 bg-white/50 py-12 text-sm text-slate-600 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4">
-        <p>{t.footer.openMeteoLine}</p>
-        <p>{t.footer.independenceLine}</p>
-        <p>{t.footer.docNztaLine}</p>
-        <p>{t.footer.mapsLine}</p>
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}`}>
-            {t.footer.home}
-          </Link>
-          <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/wizard`}>
-            {t.footer.plan}
-          </Link>
-          <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/guides`}>
-            {t.footer.guidesLink}
-          </Link>
-          <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/xhs`}>
-            {t.footer.xhsLink}
-          </Link>
-          <a
-            className="text-sky-800 hover:underline"
-            href={`mailto:${t.footer.contactEmail}`}
-          >
-            {t.footer.contactLine} {t.footer.contactEmail}
-          </a>
-          <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/privacy`}>
-            {t.footer.privacyLink}
-          </Link>
-          <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/terms`}>
-            {t.footer.termsLink}
-          </Link>
-          <Link className="font-semibold text-sky-700 hover:underline" href={`/${locale}/disclaimer`}>
-            {t.footer.disclaimerLink}
-          </Link>
-        </div>
+    <footer className="mt-16 border-t border-slate-800/80 pb-24 pt-8 md:pb-10">
+      <div className="mx-auto max-w-5xl px-4 text-sm text-slate-500">
+        <p className="font-pixel text-[10px] text-slate-400">LIFE: NEW GAME · 人生重新开服</p>
+        <p className="mt-3 leading-relaxed">
+          一个普通人在新西兰的真人开放世界游戏。页面上的等级、经验、地图和成就，都来自真实完成（或失败）的挑战。
+        </p>
+        {socials.length ? (
+          <p className="mt-3 flex flex-wrap gap-3">
+            {socials.map((s) => (
+              <a key={s.label} href={s.url} target="_blank" rel="noreferrer" className="text-cyan-300 hover:underline">
+                {s.label}
+              </a>
+            ))}
+          </p>
+        ) : null}
+        <p className="mt-3 text-xs text-slate-600">
+          投票任务会经过筛选：危险、违法、侵犯他人隐私或成本过高的任务不会进入投票池。
+        </p>
       </div>
     </footer>
   );

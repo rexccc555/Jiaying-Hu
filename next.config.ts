@@ -1,14 +1,15 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  images: {
-    remotePatterns: [
-      {
-        protocol: "https",
-        hostname: "images.unsplash.com",
-        pathname: "/**",
-      },
-    ],
+  async redirects() {
+    return [
+      { source: "/zh", destination: "/", permanent: true },
+      { source: "/en", destination: "/", permanent: true },
+      { source: "/zh/:path*", destination: "/", permanent: true },
+      { source: "/en/:path*", destination: "/", permanent: true },
+      { source: "/wizard", destination: "/", permanent: true },
+      { source: "/result", destination: "/", permanent: true },
+    ];
   },
 };
 
