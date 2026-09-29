@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import { achievements, stories, type Story } from "@/data/game";
+import type { Story } from "@/data/game";
+import { getContent } from "@/lib/content";
 import { Panel, SectionTitle, Tag, type Tone } from "@/components/ui";
 
 export const metadata: Metadata = { title: "故事档案馆" };
+export const revalidate = 60;
 
 const TYPE: Record<Story["type"], { label: string; tone: Tone }> = {
   announcement: { label: "公告", tone: "cyan" },
@@ -11,7 +13,8 @@ const TYPE: Record<Story["type"], { label: string; tone: Tone }> = {
   update: { label: "版本更新", tone: "violet" },
 };
 
-export default function ArchivePage() {
+export default async function ArchivePage() {
+  const { stories, achievements } = await getContent();
   const sorted = [...stories].sort((a, b) => b.date.localeCompare(a.date));
   const normal = achievements.filter((a) => a.kind !== "fail");
   const fails = achievements.filter((a) => a.kind === "fail");
@@ -27,7 +30,7 @@ export default function ArchivePage() {
             <Panel className="p-4">
               <div className="flex flex-wrap items-center gap-2 text-xs">
                 <span className="font-pixel text-[10px] text-slate-500">{s.date}</span>
-                <Tag tone={TYPE[s.type].tone}>{TYPE[s.type].label}</Tag>
+                <Tag tone={(TYPE[s.type] ?? TYPE.story).tone}>{(TYPE[s.type] ?? TYPE.story).label}</Tag>
                 {s.episode ? <Tag tone="violet">{s.episode}</Tag> : null}
                 {s.xp ? <span className="font-pixel text-[10px] text-lime-300">+{s.xp} XP</span> : null}
               </div>

@@ -1,5 +1,17 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import type { QuestSubmission } from "@prisma/client";
+import {
+  AchievementsTab,
+  CardsTab,
+  EpisodesTab,
+  JsonTab,
+  MapTab,
+  PlayerTab,
+  QuestsTab,
+  SkillsTab,
+  StoriesTab,
+} from "./tabs";
 import { adminConfigured, isAdmin } from "@/lib/admin";
 import { prisma } from "@/lib/prisma";
 import { getCurrentRound, getRoundOptions, isRoundClosed, SUBMISSION_OPTION_PREFIX } from "@/lib/rounds";
@@ -32,15 +44,28 @@ function fmt(d: Date) {
   return d.toLocaleString("zh-CN", { timeZone: "Pacific/Auckland", hour12: false }).slice(0, 16);
 }
 
-type Props = { searchParams: Promise<{ e?: string }> };
+type Props = { searchParams: Promise<{ e?: string; tab?: string; section?: string; ok?: string }> };
+
+const TABS = [
+  { id: "review", label: "投稿与投票" },
+  { id: "player", label: "玩家与主线" },
+  { id: "quests", label: "任务" },
+  { id: "map", label: "地图" },
+  { id: "episodes", label: "剧集" },
+  { id: "stories", label: "故事" },
+  { id: "achievements", label: "成就" },
+  { id: "skills", label: "技能树" },
+  { id: "cards", label: "任务卡" },
+  { id: "json", label: "高级" },
+] as const;
 
 export default async function AdminPage({ searchParams }: Props) {
-  if (!adminConfigured()) {
+  if (!(await adminConfigured())) {
     return (
       <main className="mx-auto max-w-md px-4 pt-16">
         <Panel>
           <p className="text-white">后台还没有设置密码。</p>
-          <p className="mt-2 text-sm text-slate-400">在 Netlify 环境变量里添加 ADMIN_PASSWORD，重新部署后即可登录。</p>
+          <p className="mt-2 text-sm text-slate-400">数据库里没有找到后台密码，也没有设置 ADMIN_PASSWORD 环境变量。</p>
         </Panel>
       </main>
     );
@@ -65,6 +90,51 @@ export default async function AdminPage({ searchParams }: Props) {
     );
   }
 
+  const sp = await searchParams;
+  const tab = TABS.find((t) => t.id === sp.tab)?.id ?? "review";
+  const pendingCount = await prisma.questSubmission.count({ where: { status: "pending" } }).catch(() => 0);
+
+  return (
+    <main className="mx-auto max-w-5xl px-4 pb-8 pt-8">
+      <div className="flex items-center justify-between gap-3">
+        <SectionTitle kicker="ADMIN" title="管理后台" desc="网站上所有内容都在这里改，保存后约 1 分钟内全站更新。" />
+        <form action={logout}>
+          <button type="submit" className="btn-ghost">
+            退出
+          </button>
+        </form>
+      </div>
+      <nav className="-mx-4 mb-6 flex gap-1.5 overflow-x-auto px-4 pb-1">
+        {TABS.map((t) => (
+          <Link
+            key={t.id}
+            href={`/admin?tab=${t.id}`}
+            className={`shrink-0 rounded-lg border px-3 py-1.5 text-sm ${
+              t.id === tab ? "border-lime-400/60 bg-lime-400/10 text-lime-200" : "border-slate-700 text-slate-400 hover:text-white"
+            }`}
+          >
+            {t.label}
+            {t.id === "review" && pendingCount ? (
+              <span className="ml-1.5 rounded bg-rose-500 px-1.5 text-[11px] text-white">{pendingCount}</span>
+            ) : null}
+          </Link>
+        ))}
+      </nav>
+      {tab === "review" ? <ReviewTab /> : null}
+      {tab === "player" ? <PlayerTab /> : null}
+      {tab === "quests" ? <QuestsTab /> : null}
+      {tab === "map" ? <MapTab /> : null}
+      {tab === "episodes" ? <EpisodesTab /> : null}
+      {tab === "stories" ? <StoriesTab /> : null}
+      {tab === "achievements" ? <AchievementsTab /> : null}
+      {tab === "skills" ? <SkillsTab /> : null}
+      {tab === "cards" ? <CardsTab /> : null}
+      {tab === "json" ? <JsonTab section={sp.section} error={sp.e} ok={sp.ok} /> : null}
+    </main>
+  );
+}
+
+async function ReviewTab() {
   const round = await getCurrentRound();
   const [options, votes, pending, pool, rejected] = await Promise.all([
     getRoundOptions(round.id),
@@ -84,16 +154,7 @@ export default async function AdminPage({ searchParams }: Props) {
   const ranked = [...options].sort((a, b) => (counts[b.id] ?? 0) - (counts[a.id] ?? 0));
 
   return (
-    <main className="mx-auto max-w-5xl px-4 pb-8 pt-8">
-      <div className="flex items-center justify-between">
-        <SectionTitle kicker="ADMIN" title="管理后台" desc="观众投稿先在这里审核，同意后才会进入投票。" />
-        <form action={logout}>
-          <button type="submit" className="btn-ghost">
-            退出
-          </button>
-        </form>
-      </div>
-
+    <>
       <Panel glow>
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-lg font-bold text-white">当前投票：{round.title}</p>
@@ -245,7 +306,7 @@ export default async function AdminPage({ searchParams }: Props) {
           </details>
         </section>
       ) : null}
-    </main>
+    </>
   );
 }
 

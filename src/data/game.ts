@@ -1,12 +1,9 @@
 ﻿/**
- * 人生重新开服 · 游戏存档
+ * 人生重新开服 · 默认存档
  *
- * 你只需要改这个文件来「结算」：
- * - 完成任务：把对应 quest 的 status 改成 "done"，填上 date（和视频链接），经验值会自动累加、等级自动计算。
- * - 点亮地图：把 region 的 unlocked 改成 true，并填 firstVisit / note（新地点照格式加一条，带经纬度）。
- * - 解锁技能 / 成就：把 status / unlocked 改掉即可。
- * - 发新故事：在 stories 顶部加一条。
- * - 开新一轮投票：改 voteRound 的 id（每轮唯一）和 options。
+ * 日常更新请用网站后台 /admin。这里的内容只是初始值：
+ * 某一块在后台保存过之后，网站就以数据库里的版本为准（src/lib/content.ts），
+ * 在后台「高级」里点「恢复默认」才会回到这里的内容。
  */
 
 export type QuestStatus = "todo" | "active" | "done" | "failed";

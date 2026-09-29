@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { quests, type Quest } from "@/data/game";
+import type { Quest } from "@/data/game";
+import { getContent } from "@/lib/content";
 import { QUEST_KIND_LABEL, QUEST_STATUS_LABEL, stars } from "@/lib/game";
 import { getCurrentRound, getRoundOptions } from "@/lib/rounds";
 import { Panel, SectionTitle, Tag, type Tone } from "@/components/ui";
@@ -21,6 +22,7 @@ const ORDER: Quest["status"][] = ["active", "todo", "done", "failed"];
 export default async function QuestsPage() {
   const round = await getCurrentRound();
   const options = await getRoundOptions(round.id);
+  const { quests } = await getContent();
   const grouped = ORDER.map((s) => ({ status: s, items: quests.filter((q) => q.status === s) })).filter(
     (g) => g.items.length,
   );

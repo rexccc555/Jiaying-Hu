@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { dailyCardPool } from "@/data/game";
+import { getContent } from "@/lib/content";
 import { SectionTitle } from "@/components/ui";
 import { DailyCard } from "./DailyCard";
 
 export const metadata: Metadata = { title: "领取你的新手任务卡" };
+export const revalidate = 60;
 
-export default function CardPage() {
+export default async function CardPage() {
+  const { dailyCardPool } = await getContent();
   return (
     <main className="mx-auto max-w-xl px-4 pb-8 pt-8">
       <SectionTitle

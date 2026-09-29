@@ -1,6 +1,7 @@
-import { player } from "@/data/game";
+import { getContent } from "@/lib/content";
 
-export function SiteFooter() {
+export async function SiteFooter() {
+  const { player } = await getContent();
   const socials = player.socials.filter((s) => s.url);
   return (
     <footer className="mt-16 border-t border-slate-800/80 pb-24 pt-8 md:pb-10">

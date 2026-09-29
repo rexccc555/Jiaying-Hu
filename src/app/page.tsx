@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { episodes, mainQuest, player, quests } from "@/data/game";
+import { getContent } from "@/lib/content";
 import { getProgress, QUEST_STATUS_LABEL, serverDay, stars } from "@/lib/game";
 import { getCurrentRound, getRoundOptions } from "@/lib/rounds";
 import { Counter, Kicker, Panel, PixelAvatar, SectionTitle, StatBar, Tag, XpBar } from "@/components/ui";
@@ -15,10 +15,14 @@ const EP_STATUS = {
 export default async function LobbyPage() {
   const round = await getCurrentRound();
   const roundOptions = (await getRoundOptions(round.id)).slice(0, 4);
-  const p = getProgress();
-  const day = serverDay();
-  const currentQuests = quests.filter((q) => q.episode === "EP01");
-  const mqPct = Math.round((mainQuest.current / mainQuest.target) * 100);
+  const content = await getContent();
+  const { player, mainQuest, quests, episodes } = content;
+  const p = getProgress(content);
+  const day = serverDay(player.launchDate);
+  const currentEp =
+    episodes.find((e) => e.status === "filming") ?? episodes.find((e) => e.status === "planned") ?? episodes.at(-1);
+  const currentQuests = currentEp ? quests.filter((q) => q.episode === currentEp.id) : [];
+  const mqPct = mainQuest.target > 0 ? Math.min(100, Math.round((mainQuest.current / mainQuest.target) * 100)) : 0;
 
   return (
     <main className="mx-auto max-w-5xl px-4 pb-8 pt-6">
@@ -95,8 +99,9 @@ export default async function LobbyPage() {
         </div>
       </Panel>
 
+      {currentEp && currentQuests.length ? (
       <section className="mt-12">
-        <SectionTitle kicker="EP01 · MISSIONS" title="本集任务清单" desc="第一集：今天，我决定重新开始练级。" />
+        <SectionTitle kicker={`${currentEp.id} · MISSIONS`} title="本集任务清单" desc={`${currentEp.id}：${currentEp.title}`} />
         <div className="grid gap-3 sm:grid-cols-2">
           {currentQuests.map((q) => (
             <Panel key={q.id} className="p-4">
@@ -116,6 +121,7 @@ export default async function LobbyPage() {
           ))}
         </div>
       </section>
+      ) : null}
 
       <section className="mt-12">
         <SectionTitle kicker="STORY MODE" title="剧情章节" desc="抖音是剧情，网站是游戏大厅。每一集对应一次存档。" />

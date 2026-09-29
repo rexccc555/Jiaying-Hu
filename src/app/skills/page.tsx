@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import { quests, skillTree, type SkillBranch, type SkillNode } from "@/data/game";
+import type { SkillBranch, SkillNode } from "@/data/game";
+import { getContent } from "@/lib/content";
 import { Panel, SectionTitle } from "@/components/ui";
 
 export const metadata: Metadata = { title: "技能树" };
+export const revalidate = 60;
 
 const COLOR: Record<SkillBranch["color"], { ring: string; text: string; line: string; fill: string }> = {
   cyan: { ring: "border-cyan-400", text: "text-cyan-300", line: "bg-cyan-400/50", fill: "bg-cyan-400/15" },
@@ -18,7 +20,8 @@ function nodeLabel(n: SkillNode) {
   return "未解锁";
 }
 
-export default function SkillsPage() {
+export default async function SkillsPage() {
+  const { quests, skillTree } = await getContent();
   const total = skillTree.reduce((s, b) => s + b.nodes.length, 0);
   const lit = skillTree.reduce((s, b) => s + b.nodes.filter((n) => n.status === "unlocked").length, 0);
 
@@ -31,7 +34,7 @@ export default function SkillsPage() {
       />
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {skillTree.map((branch) => {
-          const c = COLOR[branch.color];
+          const c = COLOR[branch.color] ?? COLOR.cyan;
           return (
             <Panel key={branch.id} className="p-4">
               <p className={`flex items-center gap-2 font-bold ${c.text}`}>
