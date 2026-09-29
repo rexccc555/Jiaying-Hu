@@ -98,7 +98,7 @@ export type VoteOption = {
 
 export const player = {
   /** 你的名字 / 昵称 */
-  name: "玩家 001",
+  name: "新西兰生活日记📔",
   title: "新手村居民",
   server: "奥克兰服务器",
   /** 开服日期：用于计算「开服第 N 天」 */
