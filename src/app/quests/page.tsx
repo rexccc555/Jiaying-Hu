@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import { quests, voteRound, type Quest } from "@/data/game";
+import { quests, type Quest } from "@/data/game";
 import { QUEST_KIND_LABEL, QUEST_STATUS_LABEL, stars } from "@/lib/game";
+import { getCurrentRound, getRoundOptions } from "@/lib/rounds";
 import { Panel, SectionTitle, Tag, type Tone } from "@/components/ui";
 import { SubmitQuest } from "./SubmitQuest";
 import { VotePanel } from "./VotePanel";
 
 export const metadata: Metadata = { title: "任务大厅" };
+export const revalidate = 60;
 
 const STATUS_TONE: Record<Quest["status"], Tone> = {
   active: "cyan",
@@ -16,7 +18,9 @@ const STATUS_TONE: Record<Quest["status"], Tone> = {
 
 const ORDER: Quest["status"][] = ["active", "todo", "done", "failed"];
 
-export default function QuestsPage() {
+export default async function QuestsPage() {
+  const round = await getCurrentRound();
+  const options = await getRoundOptions(round.id);
   const grouped = ORDER.map((s) => ({ status: s, items: quests.filter((q) => q.status === s) })).filter(
     (g) => g.items.length,
   );
@@ -24,12 +28,16 @@ export default function QuestsPage() {
   return (
     <main className="mx-auto max-w-5xl px-4 pb-8 pt-8">
       <SectionTitle
-        kicker={`QUEST BOARD · ${voteRound.id}`}
-        title={voteRound.title}
+        kicker={`QUEST BOARD · ${round.id}`}
+        title={round.title}
         desc="由观众决定下一集挑战什么。每周只开放一轮，票数最高的任务会被拍进下一集，完成后在这里发布结算报告。"
       />
       <Panel glow>
-        <VotePanel roundId={voteRound.id} closesAt={voteRound.closesAt} options={voteRound.options} />
+        {options.length ? (
+          <VotePanel roundId={round.id} closesAt={round.closesAt} options={options} />
+        ) : (
+          <p className="text-sm text-slate-400">本轮候选任务还在筛选中，先去下面给我派一个任务吧。</p>
+        )}
       </Panel>
 
       <section className="mt-12">

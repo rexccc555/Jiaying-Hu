@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { episodes, mainQuest, player, quests, voteRound } from "@/data/game";
+import { episodes, mainQuest, player, quests } from "@/data/game";
 import { getProgress, QUEST_STATUS_LABEL, serverDay, stars } from "@/lib/game";
+import { getCurrentRound, getRoundOptions } from "@/lib/rounds";
 import { Counter, Kicker, Panel, PixelAvatar, SectionTitle, StatBar, Tag, XpBar } from "@/components/ui";
 
-export const revalidate = 3600;
+export const revalidate = 60;
 
 const EP_STATUS = {
   released: { label: "已上线", tone: "lime" },
@@ -11,7 +12,9 @@ const EP_STATUS = {
   planned: { label: "未解锁", tone: "slate" },
 } as const;
 
-export default function LobbyPage() {
+export default async function LobbyPage() {
+  const round = await getCurrentRound();
+  const roundOptions = (await getRoundOptions(round.id)).slice(0, 4);
   const p = getProgress();
   const day = serverDay();
   const currentQuests = quests.filter((q) => q.episode === "EP01");
@@ -142,10 +145,11 @@ export default function LobbyPage() {
 
       <div className="mt-12 grid gap-4 md:grid-cols-2">
         <Panel glow>
-          <Kicker>VOTE · {voteRound.id}</Kicker>
+          <Kicker>VOTE · {round.id}</Kicker>
           <h2 className="mt-2 text-lg font-bold text-white">由你决定下一集挑战什么</h2>
+          {roundOptions.length ? null : <p className="mt-3 text-sm text-slate-400">本轮候选任务筛选中。</p>}
           <ul className="mt-3 space-y-1.5 text-sm text-slate-300">
-            {voteRound.options.map((o) => (
+            {roundOptions.map((o) => (
               <li key={o.id} className="flex justify-between gap-2">
                 <span>
                   <span className="text-slate-500">[{o.zone}]</span> {o.title}
