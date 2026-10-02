@@ -81,6 +81,7 @@ const I18N = {
     trialTitle: "免费试用已经用完啦",
     trialSub: "希望那条成片让你多休息了一会儿。开通会员（NZ$9.9/月起，无限制使用）或按时长充值 credits 就能继续。",
     trialGo: "开通会员 / 充值",
+    topup: "充值 / 会员",
     member: (d) => `👑 会员 · 至 ${d}`,
     creditsLeft: (n) => `${n.toLocaleString()} credits`,
     creditsTitle: "credits 不够了",
@@ -213,6 +214,7 @@ const I18N = {
     trialTitle: "Your free trial is used up",
     trialSub: "Hope that film bought you some rest. Get a membership (from NZ$9.9/month, unlimited) or top up credits to keep going.",
     trialGo: "Membership / top up",
+    topup: "Top up / Membership",
     member: (d) => `👑 Member · until ${d}`,
     creditsLeft: (n) => `${n.toLocaleString()} credits`,
     creditsTitle: "Not enough credits",
@@ -390,6 +392,9 @@ function renderTimeLeft() {
   const badge = $("time-left");
   if (card.account) {
     badge.hidden = false;
+    badge.classList.add("link");
+    badge.title = t("topup");
+    $("topup").hidden = false;
     const day = card.planUntil ? new Date(card.planUntil).toLocaleDateString(state.ui === "zh" ? "zh-CN" : "en-NZ", { month: "numeric", day: "numeric" }) : "";
     badge.textContent = card.plan ? t("member")(day)
       : card.credits > 0 ? t("creditsLeft")(card.credits)
@@ -949,8 +954,11 @@ document.querySelector(".lang-switch").addEventListener("click", (e) => {
   const btn = e.target.closest("[data-ui]");
   if (!btn) return;
   state.ui = btn.dataset.ui;
+  localStorage.setItem("mpva.lang", state.ui);
   applyUi();
+  renderTimeLeft();
 });
+$("time-left").addEventListener("click", () => card.account && (location.href = "/buy"));
 
 window.addEventListener("beforeunload", (e) => {
   if (state.job && busy(state.job)) {
@@ -973,6 +981,7 @@ async function restore() {
 
 $("agent-quality").value = localStorage.getItem("mpva.quality") === "default" ? "default" : "best";
 $("agent-quality").addEventListener("change", (e) => localStorage.setItem("mpva.quality", e.target.value));
+state.ui = localStorage.getItem("mpva.lang") === "en" ? "en" : "zh";
 applyUi();
 $("work-tip").textContent = t("tips")[0];
 setInterval(rotateTip, 8000);
