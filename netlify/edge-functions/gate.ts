@@ -81,13 +81,15 @@ export default async (request: Request, context: Context) => {
     });
   }
 
-  const allowed = readCookie(request, COOKIE) === expected || url.searchParams.get("k") === expected;
-  if (!allowed) return loginPage(false);
+  const hasCookie = readCookie(request, COOKIE) === expected;
+  if (!hasCookie && url.searchParams.get("k") !== expected) return loginPage(false);
 
   const response = await context.next();
-  if (!INJECT.has(url.pathname)) return response;
-  const body = (await response.text()).replaceAll(KEY_PLACEHOLDER, expected);
+  if (hasCookie && !INJECT.has(url.pathname)) return response;
   const headers = new Headers(response.headers);
+  if (!hasCookie) headers.append("set-cookie", `${COOKIE}=${expected}; Path=/; Max-Age=2592000; HttpOnly; Secure; SameSite=Lax`);
+  if (!INJECT.has(url.pathname)) return new Response(response.body, { status: response.status, headers });
+  const body = (await response.text()).replaceAll(KEY_PLACEHOLDER, expected);
   headers.delete("content-length");
   return new Response(body, { status: response.status, headers });
 };
