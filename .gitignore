@@ -1,31 +1,13 @@
-node_modules
-.next
-out
+.netlify
 .env
 .env.local
-*.log
-.DS_Store
-prisma/dev.db
-prisma/dev.db-journal
-prisma/dev.local.db
-prisma/dev.local.db-journal
-# 误操作可能产生的嵌套目录 / 本地库文件
-prisma/prisma/
-
-*.tsbuildinfo
-
-# Local Netlify folder
-.netlify
-
-# 本地归档的旧副本（勿提交）
+node_modules
+.next
+prisma/
+services/
+tools/
 _archive_takeadayoff/
-_cutpost_park/
-
-# CutPost 本机助手运行时
-tools/cutpost/.venv/
-tools/cutpost/data/
-tools/cutpost/**/__pycache__/
-tools/cutpost/**/*.pyc
-
+.qr-sample*
 .xhs-secrets.tmp
-
+*.tsbuildinfo
+.DS_Store

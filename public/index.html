@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="robots" content="noindex" />
+  <title>MP Video Assistant</title>
+  <link rel="stylesheet" href="/assets/site.css?v=1" />
+</head>
+<body>
+  <div class="bg-blob one"></div>
+  <div class="bg-blob two"></div>
+
+  <header class="top">
+    <p class="brand"><span class="brand-dot"></span>MP Video Assistant</p>
+    <div class="lang-switch">
+      <button type="button" data-lang="en">EN</button>
+      <button type="button" data-lang="zh" class="on">中文</button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1 data-i18n="title">把口播视频，变成好看的动态短片</h1>
+      <p class="hero-sub" data-i18n="sub">拖进原片就行。人物、标题、动画和音效一次做好，你说的每一句话都原样保留。</p>
+      <div class="hero-actions">
+        <a class="cta" href="/download/MP-Video-Assistant.zip" download data-i18n="download">免费下载（Windows）</a>
+        <a class="ghost" href="http://127.0.0.1:1780" data-i18n="open">已经装好了？打开制作工具 →</a>
+      </div>
+      <p class="fine" data-i18n="heroFine">Windows 10 / 11 · 视频只在你自己的电脑上处理</p>
+    </section>
+
+    <section class="card">
+      <h2 data-i18n="howTitle">四步开始</h2>
+      <ol class="steps">
+        <li>
+          <span class="num">1</span>
+          <div>
+            <b data-i18n="s1t">下载并解压</b>
+            <p data-i18n="s1">点上面的「免费下载」，在下载的压缩包上右键 →「全部解压缩」，放到桌面或任意文件夹。</p>
+          </div>
+        </li>
+        <li>
+          <span class="num">2</span>
+          <div>
+            <b data-i18n="s2t">双击 start.bat</b>
+            <p data-i18n="s2">第一次会自动准备运行环境，几分钟后浏览器会打开制作页面。如果 Windows 提示“已保护你的电脑”，点「更多信息」→「仍要运行」。</p>
+          </div>
+        </li>
+        <li class="key">
+          <span class="num">3</span>
+          <div>
+            <b data-i18n="s3t">一键准备，并装好一个 AI 助手（必须）</b>
+            <p data-i18n="s3">在制作页面点「一键准备」（约 10 分钟，只需要一次），再任选一个 AI 助手点「一键安装」并登录：</p>
+            <ul class="agents">
+              <li><b>Codex</b><span data-i18n="aCodex">（ChatGPT 账户登录即可）</span></li>
+              <li><b>Cursor</b><span data-i18n="aCursor">（Cursor 账户登录即可）</span></li>
+              <li><b>Claude Code</b><span data-i18n="aClaude">（Claude 账户登录即可）</span></li>
+            </ul>
+          </div>
+        </li>
+        <li>
+          <span class="num">4</span>
+          <div>
+            <b data-i18n="s4t">拖进视频，开始制作</b>
+            <p data-i18n="s4">也可以传一个喜欢的视频风格让它照着做。等待时可以去忙别的，只要不关闭那个窗口就行。</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <div class="features">
+      <div class="feature"><span>🧍</span><b data-i18n="f1t">人物自动抠出</b><p data-i18n="f1">不用绿幕，人物干净地放进设计好的画面。</p></div>
+      <div class="feature"><span>✨</span><b data-i18n="f2t">画面跟着内容动</b><p data-i18n="f2">讲到数字、地名、重点时，画面自动配合出现。</p></div>
+      <div class="feature"><span>🗣️</span><b data-i18n="f3t">原话一字不改</b><p data-i18n="f3">只做包装，不剪改你说的话，发布前你说了算。</p></div>
+    </div>
+
+    <section class="card faq">
+      <h2 data-i18n="faqTitle">常见问题</h2>
+      <details><summary data-i18n="q1">视频会上传到网上吗？</summary><p data-i18n="a1">不会。视频只在你自己的电脑上处理。</p></details>
+      <details><summary data-i18n="q2">做一条要多久？</summary><p data-i18n="a2">几十秒的视频大约 1 小时左右，越长越久。页面会显示预计时间，期间可以正常用电脑做别的事。</p></details>
+      <details><summary data-i18n="q3">电脑需要什么配置？</summary><p data-i18n="a3">Windows 10 或 11，至少 10GB 空闲空间，第一次准备时需要联网。再准备一个 AI 助手账号（ChatGPT、Cursor 或 Claude 任选一个）。</p></details>
+      <details><summary data-i18n="q4">以后怎么打开？</summary><p data-i18n="a4">双击文件夹里的 start.bat，浏览器会自动打开。也可以在本页点「打开制作工具」（需要先双击 start.bat）。</p></details>
+    </section>
+  </main>
+
+  <footer>Private beta · Complimentary access</footer>
+
+  <script>
+    const I18N = {
+      en: {
+        title: "Turn talking-head videos into beautiful motion shorts",
+        sub: "Just drop in the original. Cut-out, titles, animation and sound are done in one go, and every word you say stays exactly as spoken.",
+        download: "Free download (Windows)",
+        open: "Already installed? Open the studio →",
+        heroFine: "Windows 10 / 11 · Videos are processed only on your own computer",
+        howTitle: "Get started in four steps",
+        s1t: "Download and unzip",
+        s1: "Click “Free download”, right-click the zip → “Extract All”, and put it on your desktop or any folder.",
+        s2t: "Double-click start.bat",
+        s2: "The first run prepares everything automatically; after a few minutes your browser opens the studio. If Windows says “protected your PC”, click “More info” → “Run anyway”.",
+        s3t: "One-click setup, plus one AI assistant (required)",
+        s3: "In the studio click “Set up” (about 10 minutes, only once), then install and sign in to any one AI assistant:",
+        aCodex: " (just sign in with your ChatGPT account)",
+        aCursor: " (just sign in with your Cursor account)",
+        aClaude: " (just sign in with your Claude account)",
+        s4t: "Drop in your video and start",
+        s4: "You can also add a video whose style you like. While it works, feel free to do other things, just keep that window open.",
+        f1t: "Automatic cut-out", f1: "No green screen. You are placed cleanly into a designed scene.",
+        f2t: "Visuals follow your words", f2: "Numbers, places and key points appear right when you say them.",
+        f3t: "Your words, untouched", f3: "We only design around your speech. You approve before publishing.",
+        faqTitle: "FAQ",
+        q1: "Is my video uploaded anywhere?", a1: "No. Videos are processed only on your own computer.",
+        q2: "How long does one take?", a2: "About an hour for a clip of a few dozen seconds; longer clips take longer. The studio shows an estimate, and you can keep using your computer meanwhile.",
+        q3: "What computer do I need?", a3: "Windows 10 or 11, at least 10 GB free space, and internet for the first setup. Plus one AI assistant account (ChatGPT, Cursor or Claude).",
+        q4: "How do I open it next time?", a4: "Double-click start.bat in the folder and the browser opens. You can also click “Open the studio” here (after start.bat is running).",
+      },
+    };
+    const zh = {};
+    document.querySelectorAll("[data-i18n]").forEach((el) => (zh[el.dataset.i18n] = el.textContent));
+    I18N.zh = zh;
+    function setLang(lang) {
+      document.querySelectorAll("[data-i18n]").forEach((el) => {
+        const text = I18N[lang][el.dataset.i18n];
+        if (text) el.textContent = text;
+      });
+      document.documentElement.lang = lang === "zh" ? "zh-CN" : "en";
+      document.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("on", b.dataset.lang === lang));
+      localStorage.setItem("mpva.lang", lang);
+    }
+    document.querySelectorAll("[data-lang]").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+    setLang(localStorage.getItem("mpva.lang") || (navigator.language.startsWith("zh") ? "zh" : "en"));
+  </script>
+</body>
+</html>
