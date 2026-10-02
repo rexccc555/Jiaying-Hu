@@ -1,0 +1,189 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MP Video Assistant</title>
+  <link rel="stylesheet" href="assets/style.css?v=28" />
+</head>
+<body>
+  <div class="bg-blob one"></div>
+  <div class="bg-blob two"></div>
+
+  <header class="top">
+    <p class="brand"><span class="brand-dot"></span>MP Video Assistant</p>
+    <div class="lang-switch" role="group">
+      <button type="button" data-ui="en">EN</button>
+      <button type="button" class="on" data-ui="zh">中文</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- 首页 -->
+    <section id="step-upload" class="screen">
+      <div class="hero">
+        <h1 data-i18n="heroTitle">把口播视频，变成好看的动态短片</h1>
+        <p class="hero-sub" data-i18n="heroSub">拖进原片就行。人物、标题、动画和音效一次做好，你说的每一句话都原样保留。</p>
+      </div>
+
+      <div class="card main-card">
+        <div class="drop" id="drop">
+          <div class="drop-icon" aria-hidden="true">
+            <svg viewBox="0 0 48 48"><path d="M24 31V13m0 0-7 7m7-7 7 7" /><path d="M10 31v4a4 4 0 0 0 4 4h20a4 4 0 0 0 4-4v-4" /></svg>
+          </div>
+          <strong data-i18n="drop">把视频拖到这里</strong>
+          <span class="drop-sub" data-i18n="dropSub">或点击选择文件 · 手机拍的就可以</span>
+        </div>
+        <input id="file" type="file" accept="video/*" hidden />
+
+        <div class="picked" id="picked" hidden>
+          <div class="picked-icon">🎬</div>
+          <div class="picked-text">
+            <strong id="picked-name"></strong>
+            <span id="picked-size"></span>
+          </div>
+          <button type="button" class="link" id="btn-repick" data-i18n="repick">换一个</button>
+        </div>
+
+        <div class="refs">
+          <p class="wish-label" data-i18n="refLabel">有喜欢的视频风格？传上来照着做（可选）</p>
+          <div class="ref-grid" id="ref-grid">
+            <button type="button" class="ref-add" id="ref-add">
+              <span>＋</span>
+              <em data-i18n="refAdd">添加风格视频或截图</em>
+            </button>
+          </div>
+          <input id="ref-file" type="file" accept="video/*,image/*" multiple hidden />
+          <p class="fine left" data-i18n="refHelp">最多 3 个。只学它的排版、配色、节奏和转场，不会搬用里面的内容。</p>
+        </div>
+
+        <div class="wish">
+          <p class="wish-label" data-i18n="wishLabel">想要什么感觉？（可以不选）</p>
+          <div class="chips" id="chips"></div>
+          <textarea id="brief" rows="2" data-i18n-placeholder="wishPh"></textarea>
+        </div>
+
+        <button type="button" class="cta" id="btn-generate" data-i18n="start" disabled>开始制作</button>
+        <p class="fine" id="upload-help" data-i18n="startHelp">视频只在这台电脑上处理。</p>
+      </div>
+
+      <div class="card setup-card" id="setup-card" hidden>
+        <div class="setup-head">
+          <span class="setup-emoji">🧰</span>
+          <div>
+            <strong data-i18n="setupTitle">第一次使用，先准备一下</strong>
+            <p data-i18n="setupSub">只需要一次，大约 10 分钟。准备好以后每次都能直接用。</p>
+          </div>
+        </div>
+        <ul class="setup-list" id="setup-list"></ul>
+        <div class="setup-actions">
+          <button type="button" class="cta small" id="btn-env-fix" data-i18n="setupGo">一键准备</button>
+          <button type="button" class="pill" id="btn-login" hidden data-i18n="login">登录 AI 助手</button>
+        </div>
+        <p class="fine" id="setup-note"></p>
+      </div>
+
+      <div class="card agent-card" id="advanced" hidden>
+        <div class="setup-head">
+          <span class="setup-emoji">🤖</span>
+          <div>
+            <strong data-i18n="agentTitle">AI 助手（必须装一个才能制作）</strong>
+            <p data-i18n="agentSub">任选一个安装并登录即可，装好后会显示「可以用 ✓」。</p>
+          </div>
+        </div>
+        <div id="agent-setup" class="agent-setup"></div>
+        <label class="adv-row"><span data-i18n="engine">用哪个来制作</span><select id="agent-runner"></select></label>
+        <p class="fine left" id="agent-note"></p>
+      </div>
+
+      <div class="features">
+        <div class="feature"><span>🧍</span><b data-i18n="f1t">人物自动抠出</b><p data-i18n="f1">不用绿幕，人物干净地放进设计好的画面。</p></div>
+        <div class="feature"><span>✨</span><b data-i18n="f2t">画面跟着内容动</b><p data-i18n="f2">讲到数字、地名、重点时，画面自动配合出现。</p></div>
+        <div class="feature"><span>🗣️</span><b data-i18n="f3t">原话一字不改</b><p data-i18n="f3">只做包装，不剪改你说的话，发布前你说了算。</p></div>
+      </div>
+
+    </section>
+
+    <!-- 制作中 -->
+    <section id="step-work" class="screen" hidden>
+      <div class="card work-card">
+        <div class="mascot" aria-hidden="true">
+          <div class="sparkle s1">✦</div><div class="sparkle s2">✧</div><div class="sparkle s3">✦</div>
+          <div class="buddy">
+            <div class="buddy-face">
+              <span class="eye l"></span><span class="eye r"></span>
+              <span class="cheek l"></span><span class="cheek r"></span>
+              <span class="mouth"></span>
+            </div>
+            <div class="buddy-reel"></div>
+          </div>
+          <div class="shadow"></div>
+        </div>
+
+        <h1 id="work-title" data-i18n="working">正在为你制作</h1>
+        <p class="work-tip" id="work-tip"></p>
+
+        <ol class="stages" id="stages"></ol>
+
+        <div class="eta" id="eta">
+          <div class="eta-bar"><span id="eta-fill"></span></div>
+          <p id="eta-text"></p>
+        </div>
+
+        <div class="rest">
+          <span class="rest-emoji">☕</span>
+          <div>
+            <strong data-i18n="restTitle">可以先去休息，晚点回来看</strong>
+            <p data-i18n="restBody">做好后会自动出现在这里。期间可以正常用电脑做别的事，只要不关闭、不刷新这个窗口就行。</p>
+          </div>
+        </div>
+
+        <p class="fine error" id="work-error"></p>
+        <div class="work-actions">
+          <button type="button" class="cta small" id="btn-film" hidden data-i18n="startFilm">开始制作</button>
+          <button type="button" class="link" id="btn-stop" hidden data-i18n="stop">停止制作</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 完成 -->
+    <section id="step-ready" class="screen" hidden>
+      <div class="card done-card">
+        <div class="done-head">
+          <span class="done-badge">🎉</span>
+          <div>
+            <h1 data-i18n="done">做好了！</h1>
+            <p class="hero-sub" id="done-sub" data-i18n="doneSub">先完整看一遍，满意再下载发布。</p>
+          </div>
+        </div>
+        <div class="player" id="player"></div>
+        <div class="done-actions">
+          <a class="cta" id="btn-download" download data-i18n="download">下载视频</a>
+          <button type="button" class="pill" id="btn-new" data-i18n="again">再做一个</button>
+        </div>
+        <details class="redo">
+          <summary data-i18n="redoLabel">想换个感觉重做？</summary>
+          <textarea id="ready-brief" rows="2" data-i18n-placeholder="wishPh"></textarea>
+          <button type="button" class="pill" id="btn-rebrief" data-i18n="redo">按这个要求重做</button>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <div class="login" id="login" hidden>
+    <form class="card login-card" id="login-form">
+      <div class="drop-icon">🎬</div>
+      <strong data-i18n="loginTitle">请输入访问密码</strong>
+      <p data-i18n="loginSub">内测中，输入密码后就能开始制作。</p>
+      <input type="password" id="login-pw" autocomplete="current-password" />
+      <button type="submit" class="cta" data-i18n="loginGo">进入</button>
+      <p class="login-err" id="login-err"></p>
+    </form>
+  </div>
+
+  <footer>
+    Private beta · Complimentary access
+  </footer>
+  <script src="assets/app.js?v=28"></script>
+</body>
+</html>
