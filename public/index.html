@@ -6,51 +6,187 @@
   <meta name="robots" content="noindex" />
   <title>MP Video Assistant</title>
   <style>
+    :root { --ink: #15243b; --muted: #66758a; --paper: #fbf7f1; --line: #ece4d8; --accent: #ff7a59; --accent-2: #ffb347; --navy: #1f3d63; --good: #2f9e6b;
+      --shadow: 0 18px 50px -24px rgba(21, 36, 59, 0.28); }
     * { box-sizing: border-box; }
-    html, body { margin: 0; height: 100%; background: #fbf7f1; color: #15243b;
-      font-family: "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif; }
-    iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; display: none; }
-    .state { min-height: 100%; display: grid; place-items: center; padding: 24px; text-align: center; }
-    .card { background: #fff; border: 1px solid #ece4d8; border-radius: 24px; padding: 34px 28px; max-width: 420px;
-      box-shadow: 0 18px 50px -24px rgba(21,36,59,.28); }
-    .icon { width: 56px; height: 56px; border-radius: 18px; margin: 0 auto 14px; display: grid; place-items: center; font-size: 26px;
-      background: linear-gradient(135deg, #ff7a59, #ffb347); }
-    h1 { font-size: 1.2rem; margin: 0 0 8px; }
-    p { color: #66758a; font-size: 14px; line-height: 1.7; margin: 0; }
-    .spin { animation: spin 1.2s linear infinite; }
+    html, body { margin: 0; }
+    body { font-family: "PingFang SC", "Microsoft YaHei UI", "Microsoft YaHei", "Segoe UI", sans-serif; color: var(--ink); background: var(--paper);
+      min-height: 100vh; overflow-x: hidden; line-height: 1.6; }
+    .blob { position: fixed; border-radius: 50%; filter: blur(70px); opacity: .45; z-index: -1; pointer-events: none; }
+    .b1 { width: 520px; height: 520px; background: #ffd9c7; top: -180px; right: -140px; }
+    .b2 { width: 460px; height: 460px; background: #d9e8ff; bottom: -200px; left: -160px; }
+    .top, main, footer { max-width: 760px; margin: 0 auto; padding: 0 22px; }
+    .top { display: flex; justify-content: space-between; align-items: center; padding-top: 26px; }
+    .brand { margin: 0; font-size: 13px; letter-spacing: .16em; text-transform: uppercase; color: var(--navy); font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+    .lang { display: flex; gap: 4px; background: #fff; padding: 4px; border-radius: 999px; box-shadow: 0 2px 10px -6px rgba(0,0,0,.3); }
+    .lang button { border: 0; background: transparent; padding: 6px 12px; border-radius: 999px; cursor: pointer; font: inherit; font-size: 13px; color: var(--muted); }
+    .lang button.on { background: var(--navy); color: #fff; }
+    .hero { text-align: center; padding: 44px 0 26px; }
+    .hero h1 { margin: 0; font-size: clamp(1.8rem, 4.6vw, 2.5rem); line-height: 1.25; }
+    .hero p { margin: 14px auto 0; color: var(--muted); font-size: 1.05rem; max-width: 560px; }
+    .card { background: #fff; border-radius: 24px; box-shadow: var(--shadow); border: 1px solid var(--line); padding: 30px; margin-bottom: 18px; }
+    .status { text-align: center; }
+    .status h2 { margin: 6px 0 6px; font-size: 1.35rem; }
+    .status .sub { color: var(--muted); margin: 0 0 20px; }
+    .badge { width: 64px; height: 64px; border-radius: 20px; margin: 0 auto 6px; display: grid; place-items: center; font-size: 30px;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2)); box-shadow: 0 10px 24px -10px var(--accent); }
+    .badge.good { background: linear-gradient(135deg, #3fb97f, #7ad3a3); box-shadow: 0 10px 24px -10px var(--good); }
+    .spin { display: inline-block; animation: spin 1.4s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    .cta { display: inline-block; border: 0; cursor: pointer; text-decoration: none; color: #fff; font: inherit; font-weight: 700; font-size: 1.08rem;
+      padding: 16px 34px; border-radius: 16px; background: linear-gradient(135deg, var(--accent), #ff9a5a); box-shadow: 0 14px 28px -14px var(--accent);
+      transition: transform .15s ease; }
+    .cta:hover { transform: translateY(-2px); }
+    .steps { list-style: none; padding: 0; margin: 4px 0 0; display: grid; gap: 12px; text-align: left; }
+    .steps li { display: flex; gap: 14px; align-items: flex-start; padding: 16px; border-radius: 18px; background: #fffaf5; border: 1px solid var(--line); }
+    .num { flex: none; width: 34px; height: 34px; border-radius: 12px; display: grid; place-items: center; color: #fff; font-weight: 700;
+      background: linear-gradient(135deg, var(--accent), var(--accent-2)); }
+    .steps b { font-size: 1.03rem; }
+    .steps p { margin: 4px 0 0; color: var(--muted); font-size: 14.5px; }
+    .keys { display: inline-block; padding: 1px 8px; border-radius: 6px; border: 1px solid var(--line); background: #fff; font-size: 13px; font-weight: 600; color: var(--ink); }
+    .copied { color: var(--good); font-weight: 600; margin-left: 10px; }
+    .fine { color: var(--muted); font-size: 13px; margin: 14px 0 0; }
+    .fine a { color: var(--navy); }
+    .agents { margin: 10px 0 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+    .agents li { font-size: 14px; color: var(--muted); }
+    .agents b { color: var(--ink); }
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 6px 0 18px; }
+    .feature { background: rgba(255,255,255,.75); border: 1px solid var(--line); border-radius: 18px; padding: 18px; }
+    .feature span { font-size: 22px; }
+    .feature b { display: block; margin: 8px 0 4px; }
+    .feature p { margin: 0; color: var(--muted); font-size: 13.5px; }
+    footer { text-align: center; color: #a5afbd; font-size: 12px; padding: 18px 22px 36px; }
+    [hidden] { display: none !important; }
+    @media (max-width: 640px) { .features { grid-template-columns: 1fr; } .card { padding: 22px 18px; } }
   </style>
 </head>
 <body>
-  <div class="state" id="state">
-    <div class="card">
-      <div class="icon"><span class="spin" id="icon">✦</span></div>
-      <h1 id="title">正在连接制作工具…</h1>
-      <p id="sub">Connecting to the studio…</p>
+  <div class="blob b1"></div><div class="blob b2"></div>
+  <header class="top">
+    <p class="brand"><span class="dot"></span>MP Video Assistant</p>
+    <div class="lang"><button type="button" data-lang="en">EN</button><button type="button" data-lang="zh" class="on">中文</button></div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1 data-i18n="title">把口播视频，变成好看的动态短片</h1>
+      <p data-i18n="sub">拖进原片就行。人物、标题、动画和音效一次做好，你说的每一句话都原样保留。</p>
+    </section>
+
+    <section class="card status" id="checking">
+      <div class="badge"><span class="spin">✦</span></div>
+      <h2 data-i18n="checking">正在检测你的电脑…</h2>
+      <p class="sub" data-i18n="checkingSub">如果浏览器询问是否允许访问本地设备，请点「允许」。</p>
+    </section>
+
+    <section class="card status" id="ready" hidden>
+      <div class="badge good">✓</div>
+      <h2 data-i18n="readyTitle">你的电脑已经装好了</h2>
+      <p class="sub" data-i18n="readySub">点下面的按钮，把视频拖进去就能开始。</p>
+      <a class="cta" href="http://127.0.0.1:1780" data-i18n="open">打开制作工具</a>
+    </section>
+
+    <section class="card status" id="missing" hidden>
+      <div class="badge">🧰</div>
+      <h2 data-i18n="missingTitle">这台电脑还没安装，三步装好</h2>
+      <p class="sub" data-i18n="missingSub">只需要一次，大约 5 分钟。以后开机自动运行，打开本网站就能用。</p>
+      <ol class="steps">
+        <li>
+          <span class="num">1</span>
+          <div>
+            <b data-i18n="s1t">复制安装命令</b>
+            <p><button type="button" class="cta" id="copy" style="padding:10px 22px;font-size:1rem;margin-top:6px" data-i18n="copy">复制安装命令</button><span class="copied" id="copied" hidden data-i18n="copiedOk">已复制 ✓</span></p>
+          </div>
+        </li>
+        <li>
+          <span class="num">2</span>
+          <div>
+            <b data-i18n="s2t">按 Win + R，粘贴，回车</b>
+            <p><span data-i18n="s2a">按键盘</span> <span class="keys">⊞ Win</span> + <span class="keys">R</span><span data-i18n="s2b">，在弹出的框里按</span> <span class="keys">Ctrl</span> + <span class="keys">V</span> <span data-i18n="s2c">粘贴，再按</span> <span class="keys">Enter</span>。</p>
+          </div>
+        </li>
+        <li>
+          <span class="num">3</span>
+          <div>
+            <b data-i18n="s3t">等它自动装好</b>
+            <p data-i18n="s3">会出现一个蓝色窗口自动安装，装好后制作页面会自动打开。在制作页面点「一键准备」，再任选一个 AI 助手一键安装并登录：</p>
+            <ul class="agents">
+              <li><b>Codex</b> <span data-i18n="aCodex">（ChatGPT 账户登录即可）</span></li>
+              <li><b>Cursor</b> <span data-i18n="aCursor">（Cursor 账户登录即可）</span></li>
+              <li><b>Claude Code</b> <span data-i18n="aClaude">（Claude 账户登录即可）</span></li>
+            </ul>
+          </div>
+        </li>
+      </ol>
+      <p class="fine"><span data-i18n="already">已经装好了？</span> <a href="http://127.0.0.1:1780" data-i18n="openDirect">直接打开制作工具</a> · <span data-i18n="winOnly">目前支持 Windows 10 / 11</span></p>
+    </section>
+
+    <div class="features">
+      <div class="feature"><span>🧍</span><b data-i18n="f1t">人物自动抠出</b><p data-i18n="f1">不用绿幕，人物干净地放进设计好的画面。</p></div>
+      <div class="feature"><span>✨</span><b data-i18n="f2t">画面跟着内容动</b><p data-i18n="f2">讲到数字、地名、重点时，画面自动配合出现。</p></div>
+      <div class="feature"><span>🗣️</span><b data-i18n="f3t">原话一字不改</b><p data-i18n="f3">只做包装，不剪改你说的话，发布前你说了算。</p></div>
     </div>
-  </div>
-  <iframe id="studio" title="MP Video Assistant" allow="fullscreen; clipboard-write"></iframe>
+  </main>
+
+  <footer>Private beta · Complimentary access</footer>
+
   <script>
-    const offline = () => {
-      document.getElementById("icon").className = "";
-      document.getElementById("icon").textContent = "🌙";
-      document.getElementById("title").textContent = "制作工具现在没有开";
-      document.getElementById("sub").innerHTML =
-        "请在制作电脑上双击 start.bat，等一分钟后刷新本页。<br />The studio is offline. Start it on the studio computer, then refresh in a minute.";
+    const LOCAL = "http://127.0.0.1:1780";
+    const COMMAND = `powershell -NoExit -ExecutionPolicy Bypass -c "irm 'https://takeadayoff.co.nz/install.ps1?k=__CLIP_KEY__' | iex"`;
+    const EN = {
+      title: "Turn talking-head videos into beautiful motion shorts",
+      sub: "Just drop in the original. Cut-out, titles, animation and sound are done in one go, and every word stays exactly as spoken.",
+      checking: "Checking your computer…",
+      checkingSub: "If your browser asks to allow access to local devices, click “Allow”.",
+      readyTitle: "Your computer is ready",
+      readySub: "Click below, drop in your video and start.",
+      open: "Open the studio",
+      missingTitle: "Not installed yet. Three steps",
+      missingSub: "Only once, about 5 minutes. After that it starts with Windows and this site opens it.",
+      s1t: "Copy the install command", copy: "Copy install command", copiedOk: "Copied ✓",
+      s2t: "Press Win + R, paste, Enter", s2a: "Press", s2b: ", then in the box press", s2c: "to paste, then",
+      s3t: "Wait for it to finish",
+      s3: "A blue window installs everything and the studio opens by itself. In the studio click “Set up”, then install and sign in to any one AI assistant:",
+      aCodex: "(just sign in with your ChatGPT account)", aCursor: "(just sign in with your Cursor account)", aClaude: "(just sign in with your Claude account)",
+      already: "Already installed?", openDirect: "Open the studio", winOnly: "Windows 10 / 11 for now",
+      f1t: "Automatic cut-out", f1: "No green screen. You are placed cleanly into a designed scene.",
+      f2t: "Visuals follow your words", f2: "Numbers, places and key points appear right when you say them.",
+      f3t: "Your words, untouched", f3: "We only design around your speech. You approve before publishing.",
     };
-    (async () => {
+    const ZH = {};
+    document.querySelectorAll("[data-i18n]").forEach((el) => (ZH[el.dataset.i18n] = el.textContent));
+    function setLang(lang) {
+      const dict = lang === "en" ? EN : ZH;
+      document.querySelectorAll("[data-i18n]").forEach((el) => { if (dict[el.dataset.i18n]) el.textContent = dict[el.dataset.i18n]; });
+      document.documentElement.lang = lang === "en" ? "en" : "zh-CN";
+      document.querySelectorAll("[data-lang]").forEach((b) => b.classList.toggle("on", b.dataset.lang === lang));
+      localStorage.setItem("mpva.lang", lang);
+    }
+    document.querySelectorAll("[data-lang]").forEach((b) => b.addEventListener("click", () => setLang(b.dataset.lang)));
+    setLang(localStorage.getItem("mpva.lang") || (navigator.language.startsWith("zh") ? "zh" : "en"));
+
+    function show(id) { ["checking", "ready", "missing"].forEach((s) => (document.getElementById(s).hidden = s !== id)); }
+    async function detect() {
       try {
-        const info = await (await fetch("/tunnel.json", { cache: "no-store" })).json();
-        const ping = await fetch(`${info.url}/api/remote/ping`, { cache: "no-store" });
-        if (!ping.ok) throw new Error("offline");
-        const frame = document.getElementById("studio");
-        frame.src = `${info.url}/`;
-        frame.style.display = "block";
-        document.getElementById("state").style.display = "none";
-      } catch {
-        offline();
+        const res = await fetch(`${LOCAL}/api/remote/ping`, { cache: "no-store" });
+        if (res.ok) { show("ready"); return true; }
+      } catch {}
+      if (!document.getElementById("ready").hidden) return false;
+      show("missing");
+      return false;
+    }
+    detect();
+    setInterval(detect, 4000);
+
+    document.getElementById("copy").addEventListener("click", async () => {
+      try { await navigator.clipboard.writeText(COMMAND); }
+      catch {
+        const area = document.createElement("textarea");
+        area.value = COMMAND; document.body.appendChild(area); area.select(); document.execCommand("copy"); area.remove();
       }
-    })();
+      document.getElementById("copied").hidden = false;
+    });
   </script>
 </body>
 </html>

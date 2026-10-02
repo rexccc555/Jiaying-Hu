@@ -6,8 +6,17 @@
   # The Next.js runtime is still enabled in the Netlify UI; this site is plain static files.
   NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
+[[edge_functions]]
+  path = "/*"
+  function = "gate"
+
 [[headers]]
   for = "/*"
   [headers.values]
     X-Robots-Tag = "noindex, nofollow"
     Cache-Control = "no-store"
+
+[[headers]]
+  for = "/install.ps1"
+  [headers.values]
+    Content-Type = "text/plain; charset=utf-8"
