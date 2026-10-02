@@ -2,9 +2,9 @@
   publish = "public"
   command = "echo static"
 
-[[edge_functions]]
-  path = "/*"
-  function = "gate"
+[build.environment]
+  # The Next.js runtime is still enabled in the Netlify UI; this site is plain static files.
+  NETLIFY_NEXT_PLUGIN_SKIP = "true"
 
 [[headers]]
   for = "/*"
