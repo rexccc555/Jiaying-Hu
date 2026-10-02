@@ -1,5 +1,5 @@
 import { USER_COOKIE } from "./accounts.ts";
-import { CARD_COOKIE, type Store, cookie, getCard, status, usable } from "./cards.ts";
+import { ADMIN_COOKIE, CARD_COOKIE, type Store, cookie, getCard, status, usable } from "./cards.ts";
 import { allowed, visitor } from "./identity.ts";
 import { landingPage, lockedPage } from "./landing.ts";
 
@@ -25,6 +25,7 @@ export async function handleGate(request: Request, next: () => Promise<Response>
     const headers = new Headers({ location: "/" });
     headers.append("set-cookie", cookie(CARD_COOKIE, "", 0));
     headers.append("set-cookie", cookie(USER_COOKIE, "", 0));
+    headers.append("set-cookie", cookie(ADMIN_COOKIE, "", 0));
     return new Response(null, { status: 303, headers });
   }
 

@@ -113,10 +113,10 @@
     <section class="card">
       <h2>邮件设置（发送注册验证码）</h2>
       <div class="grid2">
-        <input id="smtp-host" placeholder="SMTP 服务器，如 smtp.qq.com" />
+        <input id="smtp-host" placeholder="SMTP 服务器" value="smtp.gmail.com" />
         <input id="smtp-port" type="number" placeholder="端口，一般 465" value="465" />
-        <input id="smtp-user" placeholder="发件邮箱，如 12345@qq.com" />
-        <input id="smtp-pass" type="password" placeholder="授权码（不是邮箱登录密码）" />
+        <input id="smtp-user" placeholder="发件邮箱" value="takeadayoff01@gmail.com" />
+        <input id="smtp-pass" type="password" placeholder="Gmail 应用专用密码（16 位，不是登录密码）" />
         <input id="smtp-name" placeholder="发件人名称" value="takeadayoff" />
         <div class="row"><button type="button" class="main" id="smtp-save">保存</button><span class="muted" id="smtp-state"></span></div>
       </div>
@@ -125,7 +125,7 @@
         <button type="button" id="smtp-test">发测试邮件</button>
       </div>
       <p class="err" id="smtp-err"></p>
-      <p class="muted" style="margin:6px 0 0">QQ 邮箱：设置 → 账号 → 开启 POP3/SMTP 服务，拿到“授权码”填在上面。163 邮箱用 smtp.163.com；Gmail 用 smtp.gmail.com + 应用专用密码。</p>
+      <p class="muted" style="margin:6px 0 0">Gmail：先在 myaccount.google.com 开启“两步验证”，再打开 myaccount.google.com/apppasswords 创建一个应用专用密码（16 位），粘贴到上面（空格可以去掉）。QQ 邮箱用 smtp.qq.com + 授权码。</p>
     </section>
   </div>
 </main>

@@ -283,7 +283,7 @@ export async function handleApi(request: Request, store: Store, send: SendMail):
         host: String(body.host || "").trim(),
         port: Number(body.port) || 465,
         user: String(body.user || "").trim(),
-        pass: body.pass && body.pass !== "********" ? String(body.pass) : old?.pass || "",
+        pass: body.pass && body.pass !== "********" ? String(body.pass).replace(/\s+/g, "") : old?.pass || "",
         fromName: String(body.fromName || "takeadayoff").trim().slice(0, 40),
       };
       if (!smtp.host || !smtp.user || !smtp.pass) return fail("smtp");
