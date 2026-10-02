@@ -28,11 +28,31 @@ const I18N = {
     uploading: "正在读取视频…",
     setupTitle: "第一次使用，先准备一下",
     setupSub: "只需要一次，大约 10 分钟。准备好以后每次都能直接用。",
-    setupGo: "一键准备",
-    setupBusy: "正在准备…可以先去忙别的",
+    setupGo: "👉 点这里开始准备",
+    setupBusy: "正在自动准备，请稍等…",
+    setupRetry: "👉 再试一次",
     setupItems: { tools: "视频制作工具", speech: "语音识别（听懂你说的话）", extras: "字体与画面工具", agent: "AI 助手" },
     setupLogin: "需要登录一次",
     setupNote: "Windows 弹出“是否允许更改”时请点「是」。",
+    setupNoteMac: "全程自动，不需要输入密码。",
+    setupKeepOpen: "全程自动下载安装，不用管它。请保持电脑开着、网络连着，不要关闭这个页面。",
+    setupDoing: {
+      motion: "正在下载视频制作工程（最大的一步，网速慢时要多等一会儿）",
+      ffmpeg: "正在安装视频处理工具",
+      speech: "正在下载语音识别模型",
+      node: "正在安装运行环境",
+      runtime: "正在安装抠像和渲染组件（比较久）",
+      python: "正在安装字体与画面工具",
+      agent: "正在安装 AI 助手",
+    },
+    setupStep: (done, total) => `已完成 ${done} / ${total}`,
+    step1: "第 1 步",
+    step2: "第 2 步",
+    agentHow1: "推荐 Codex：有 ChatGPT 账号就能用。",
+    agentHow2: "点它右边的「一键安装」，等一两分钟。",
+    agentHow3: "再点「去登录」，会弹出网页或窗口，按提示登录你的账号。",
+    agentHow4: "回到这里，显示「可以用 ✓」就完成了。",
+    lockedNote: "⬆️ 先完成上面的准备步骤，这里就能上传视频了",
     setupFail: "准备没完成：",
     login: "登录 AI 助手",
     loginHint: "已打开登录页面，用你的账号确认后回到这里，会自动刷新。",
@@ -131,11 +151,31 @@ const I18N = {
     uploading: "Reading your video…",
     setupTitle: "First time? Quick one-time setup",
     setupSub: "About 10 minutes, only once. After that it is ready every time.",
-    setupGo: "Set up",
-    setupBusy: "Setting up… feel free to do something else",
+    setupGo: "👉 Click here to set up",
+    setupBusy: "Setting up automatically, please wait…",
+    setupRetry: "👉 Try again",
     setupItems: { tools: "Video tools", speech: "Speech recognition", extras: "Font and image tools", agent: "AI assistant" },
     setupLogin: "sign in once",
     setupNote: "If Windows asks to allow changes, click Yes.",
+    setupNoteMac: "Fully automatic, no password needed.",
+    setupKeepOpen: "Everything downloads and installs by itself. Keep the computer on and online, and leave this page open.",
+    setupDoing: {
+      motion: "Downloading the video project (the biggest step; slow internet takes longer)",
+      ffmpeg: "Installing video tools",
+      speech: "Downloading the speech model",
+      node: "Installing the runtime",
+      runtime: "Installing cut-out and rendering parts (takes a while)",
+      python: "Installing font and image tools",
+      agent: "Installing an AI assistant",
+    },
+    setupStep: (done, total) => `${done} of ${total} done`,
+    step1: "Step 1",
+    step2: "Step 2",
+    agentHow1: "We suggest Codex: works with a ChatGPT account.",
+    agentHow2: "Click “Install” next to it and wait a minute or two.",
+    agentHow3: "Then click “Sign in”. A web page or window opens; sign in to your account.",
+    agentHow4: "Come back here. When it shows “Ready ✓” you’re done.",
+    lockedNote: "⬆️ Finish the setup steps above, then you can upload videos here",
     setupFail: "Setup did not finish: ",
     login: "Sign in to AI assistant",
     loginHint: "A sign-in page opened. Confirm with your account, then come back here.",
@@ -221,6 +261,7 @@ function escapeHtml(value) {
 }
 
 const ON_SITE = !["127.0.0.1", "localhost"].includes(location.hostname);
+const IS_MAC = /Mac/.test(navigator.platform || navigator.userAgent);
 const BASE = ON_SITE ? "http://127.0.0.1:1780" : "";
 const KEY_STORE = "mpva.key";
 const CHUNK = 32 * 1024 * 1024;
@@ -452,18 +493,31 @@ function renderSetup() {
         return `<li class="${ok ? "ok" : busy ? "busy" : ""}"><span class="dot">${ok ? "✓" : ""}</span>${escapeHtml(names[key])}${extra}</li>`;
       })
       .join("");
+    const envItems = env.items.filter((i) => i.key !== "agent");
+    const doneCount = envItems.filter((i) => i.ok).length;
+    state.envDone = doneCount === envItems.length;
     const fix = $("btn-env-fix");
     fix.disabled = env.fixing;
-    fix.textContent = env.fixing ? t("setupBusy") : t("setupGo");
-    fix.hidden = !env.fixing && rows.every(([key, ok]) => ok || key === "agent") && usable.length > 0;
-    $("btn-login").hidden = env.fixing || !usable.length || signedIn;
-    $("setup-note").textContent = env.error ? t("setupFail") + env.error : t("setupNote");
+    fix.textContent = env.fixing ? t("setupBusy") : env.error ? t("setupRetry") : t("setupGo");
+    fix.classList.toggle("busy", env.fixing);
+    fix.hidden = state.envDone && !env.fixing;
+    $("setup-progress").hidden = !env.fixing;
+    $("setup-fill").style.width = `${Math.max(6, (doneCount / envItems.length) * 100)}%`;
+    $("setup-now").textContent = `${t("setupDoing")[env.step] || t("setupBusy")} · ${t("setupStep")(doneCount, envItems.length)}`;
+    $("btn-login").hidden = true;
+    const note = env.error ? t("setupFail") + env.error : env.fixing ? t("setupKeepOpen") : IS_MAC ? t("setupNoteMac") : t("setupNote");
+    $("setup-note").textContent = note;
+    $("setup-note").classList.toggle("error", Boolean(env.error));
   }
-  $("setup-card").hidden = !checked() || isReady();
+  $("setup-card").hidden = !checked() || isReady() || (state.envDone && !(env && env.fixing));
+  const blocked = checked() && !isReady();
+  $("locked-note").hidden = !blocked;
+  document.querySelector(".main-card").classList.toggle("locked", blocked);
 
   const select = $("agent-runner");
   select.innerHTML = usable.map((a) => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.label)}</option>`).join("");
   if (state.agentDefault) select.value = state.agentDefault;
+  select.closest(".adv-row").hidden = usable.length === 0;
   const hints = t("agentHints");
   const rowsHtml = state.agents
     .filter((a) => a.install)

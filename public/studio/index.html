@@ -1,10 +1,10 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MP Video Assistant</title>
-  <link rel="stylesheet" href="assets/style.css?v=30" />
+  <link rel="stylesheet" href="assets/style.css?v=31" />
 </head>
 <body>
   <div class="bg-blob one"></div>
@@ -28,6 +28,7 @@
       </div>
 
       <div class="card main-card">
+        <p class="locked-note" id="locked-note" hidden data-i18n="lockedNote">⬆️ 先完成上面的准备步骤，这里就能上传视频了</p>
         <div class="drop" id="drop">
           <div class="drop-icon" aria-hidden="true">
             <svg viewBox="0 0 48 48"><path d="M24 31V13m0 0-7 7m7-7 7 7" /><path d="M10 31v4a4 4 0 0 0 4 4h20a4 4 0 0 0 4-4v-4" /></svg>
@@ -70,28 +71,36 @@
 
       <div class="card setup-card" id="setup-card" hidden>
         <div class="setup-head">
-          <span class="setup-emoji">🧰</span>
+          <span class="step-badge" data-i18n="step1">第 1 步</span>
           <div>
             <strong data-i18n="setupTitle">第一次使用，先准备一下</strong>
             <p data-i18n="setupSub">只需要一次，大约 10 分钟。准备好以后每次都能直接用。</p>
           </div>
         </div>
-        <ul class="setup-list" id="setup-list"></ul>
-        <div class="setup-actions">
-          <button type="button" class="cta small" id="btn-env-fix" data-i18n="setupGo">一键准备</button>
-          <button type="button" class="pill" id="btn-login" hidden data-i18n="login">登录 AI 助手</button>
+        <button type="button" class="cta setup-go" id="btn-env-fix" data-i18n="setupGo">👉 点这里开始准备</button>
+        <div class="setup-progress" id="setup-progress" hidden>
+          <div class="eta-bar"><span id="setup-fill"></span></div>
+          <p id="setup-now"></p>
         </div>
-        <p class="fine" id="setup-note"></p>
+        <ul class="setup-list" id="setup-list"></ul>
+        <button type="button" class="pill" id="btn-login" hidden data-i18n="login">登录 AI 助手</button>
+        <p class="fine left" id="setup-note"></p>
       </div>
 
       <div class="card agent-card" id="advanced" hidden>
         <div class="setup-head">
-          <span class="setup-emoji">🤖</span>
+          <span class="step-badge blue" data-i18n="step2">第 2 步</span>
           <div>
             <strong data-i18n="agentTitle">AI 助手（必须装一个才能制作）</strong>
             <p data-i18n="agentSub">任选一个安装并登录即可，装好后会显示「可以用 ✓」。</p>
           </div>
         </div>
+        <ol class="agent-howto">
+          <li data-i18n="agentHow1">推荐 Codex：有 ChatGPT 账号就能用。</li>
+          <li data-i18n="agentHow2">点它右边的「一键安装」，等一两分钟。</li>
+          <li data-i18n="agentHow3">再点「去登录」，会弹出网页或窗口，按提示登录你的账号。</li>
+          <li data-i18n="agentHow4">回到这里，显示「可以用 ✓」就完成了。</li>
+        </ol>
         <div id="agent-setup" class="agent-setup"></div>
         <label class="adv-row"><span data-i18n="engine">用哪个来制作</span><select id="agent-runner"></select></label>
         <label class="adv-row"><span data-i18n="qualityLabel">制作模式</span>
@@ -201,6 +210,6 @@
   <footer>
     Private beta · Complimentary access
   </footer>
-  <script src="assets/app.js?v=30"></script>
+  <script src="assets/app.js?v=31"></script>
 </body>
 </html>
