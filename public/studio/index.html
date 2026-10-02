@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>MP Video Assistant</title>
-  <link rel="stylesheet" href="assets/style.css?v=28" />
+  <link rel="stylesheet" href="assets/style.css?v=29" />
 </head>
 <body>
   <div class="bg-blob one"></div>
@@ -12,6 +12,7 @@
 
   <header class="top">
     <p class="brand"><span class="brand-dot"></span>MP Video Assistant</p>
+    <span class="time-left" id="time-left" hidden></span>
     <div class="lang-switch" role="group">
       <button type="button" data-ui="en">EN</button>
       <button type="button" class="on" data-ui="zh">中文</button>
@@ -181,9 +182,18 @@
     </form>
   </div>
 
+  <div class="login" id="locked" hidden>
+    <div class="card login-card">
+      <div class="drop-icon">⏳</div>
+      <strong data-i18n="lockedTitle">这张卡的时间已用完</strong>
+      <p data-i18n="lockedSub">需要继续使用的话，请联系我们续时。</p>
+      <a class="cta" href="/__logout" data-i18n="lockedGo">换一张卡</a>
+    </div>
+  </div>
+
   <footer>
     Private beta · Complimentary access
   </footer>
-  <script src="assets/app.js?v=28"></script>
+  <script src="assets/app.js?v=29"></script>
 </body>
 </html>

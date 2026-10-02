@@ -47,6 +47,11 @@ const I18N = {
     loginGo: "进入",
     loginNeeded: "请先输入访问密码",
     loginWrong: "密码不对，再试一次",
+    lockedTitle: "这张卡的时间已用完",
+    lockedSub: "需要继续使用的话，请联系我们续时。",
+    lockedGo: "换一张卡",
+    timeLeft: (m) => `剩余 ${m} 分钟`,
+    timeAdmin: "管理员",
     agentTitle: "AI 助手（必须装一个才能制作）",
     agentSub: "任选一个安装并登录即可，装好后会显示「可以用 ✓」。",
     agentNone: "还没有可用的 AI 助手，请先在下面装一个，否则无法开始制作。",
@@ -141,6 +146,11 @@ const I18N = {
     loginGo: "Enter",
     loginNeeded: "Please enter the access password first",
     loginWrong: "Wrong password, try again",
+    lockedTitle: "This card has no time left",
+    lockedSub: "To keep going, contact us to add more time.",
+    lockedGo: "Use another card",
+    timeLeft: (m) => `${m} min left`,
+    timeAdmin: "Admin",
     agentTitle: "AI assistant (you need one to make videos)",
     agentSub: "Install and sign in to any one of them. It shows “Ready ✓” when done.",
     agentNone: "No AI assistant is ready yet. Install one below, otherwise videos can’t be made.",
@@ -207,22 +217,30 @@ const BASE = ON_SITE ? "http://127.0.0.1:1780" : "";
 const KEY_STORE = "mpva.key";
 const CHUNK = 32 * 1024 * 1024;
 
+const card = { code: "", admin: false, remainingSec: null };
+
 function withKey(url) {
   if (!url) return url;
   const key = localStorage.getItem(KEY_STORE);
-  const full = url.startsWith("/") ? BASE + url : url;
-  if (!key) return full;
-  return `${full}${full.includes("?") ? "&" : "?"}k=${encodeURIComponent(key)}`;
+  let full = url.startsWith("/") ? BASE + url : url;
+  if (key) full += `${full.includes("?") ? "&" : "?"}k=${encodeURIComponent(key)}`;
+  if (card.code) full += `${full.includes("?") ? "&" : "?"}card=${encodeURIComponent(card.code)}`;
+  return full;
 }
 
 async function api(path, options = {}) {
   const key = localStorage.getItem(KEY_STORE);
   if (key) options.headers = { ...(options.headers || {}), "X-MPVA-Key": key };
+  if (card.code) options.headers = { ...(options.headers || {}), "X-MPVA-Card": card.code };
   const res = await fetch(BASE + path, options);
   const data = await res.json().catch(() => ({}));
   if (res.status === 401 && data.detail === "login") {
     showLogin();
     throw new Error(t("loginNeeded"));
+  }
+  if (res.status === 403 && data.detail === "card") {
+    lockCard();
+    throw new Error(t("lockedTitle"));
   }
   if (!res.ok) throw new Error(data.detail || data.error || res.statusText);
   return data;
@@ -235,6 +253,37 @@ async function stageFile(file, onProgress) {
     if (onProgress) onProgress(Math.min(1, (offset + CHUNK) / file.size));
   }
   return `${uid}|${file.name}`;
+}
+
+function lockCard() {
+  card.code = "";
+  $("locked").hidden = false;
+}
+
+function renderTimeLeft() {
+  const badge = $("time-left");
+  badge.hidden = !card.admin && card.remainingSec === null;
+  if (badge.hidden) return;
+  const minutes = Math.max(0, Math.ceil((card.remainingSec || 0) / 60));
+  badge.textContent = card.admin ? t("timeAdmin") : t("timeLeft")(minutes);
+  badge.classList.toggle("low", !card.admin && minutes <= 5);
+}
+
+async function loadCard() {
+  const res = await fetch("/api/card/me", { cache: "no-store" });
+  if (!res.ok) throw new Error("card");
+  Object.assign(card, await res.json());
+  renderTimeLeft();
+}
+
+async function cardBeat() {
+  if (!card.code || card.admin) return;
+  const res = await fetch("/api/card/beat", { method: "POST", cache: "no-store" }).catch(() => null);
+  if (!res) return;
+  if (res.status === 403) return lockCard();
+  const data = await res.json().catch(() => ({}));
+  if (typeof data.remainingSec === "number") card.remainingSec = data.remainingSec;
+  renderTimeLeft();
 }
 
 function showLogin() {
@@ -278,6 +327,7 @@ function applyUi() {
   renderChips();
   renderRefs();
   renderSetup();
+  renderTimeLeft();
   if (state.job) renderJob();
 }
 
@@ -764,9 +814,14 @@ applyUi();
 $("work-tip").textContent = t("tips")[0];
 setInterval(rotateTip, 8000);
 setInterval(() => state.job && !$("step-work").hidden && renderWork(state.job), 30000);
-fetch(BASE + "/api/remote/ping")
+(ON_SITE ? loadCard() : Promise.resolve())
+  .then(() => fetch(BASE + "/api/remote/ping"))
   .then((res) => {
     if (!res.ok) throw new Error();
+    if (ON_SITE) {
+      cardBeat();
+      setInterval(cardBeat, 30000);
+    }
     loadAgents();
     loadEnv();
     restore();
