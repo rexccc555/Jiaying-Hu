@@ -233,7 +233,7 @@
         const tag = mins > 0 ? (en ? `${mins} min left` : `剩余 ${mins} 分钟`)
           : me.trial === "available" ? (en ? "1 free trial" : "免费试用 1 次")
           : me.trial === "active" ? (en ? "Free trial" : "免费试用中") : "";
-        text = `${String(me.email).replace(/[&<>"]/g, "")}${tag ? ` · <b>${tag}</b>` : ""}`;
+        text = `${String(me.email).replace(/[&<>"]/g, "")}${tag ? ` · <b>${tag}</b>` : ""} <a href="/buy" style="color:#fff;background:var(--accent)">${en ? "Top up" : "充值"}</a>`;
       } else if (me.code) text = me.code;
       if (!text) return;
       document.getElementById("me-text").innerHTML = text;

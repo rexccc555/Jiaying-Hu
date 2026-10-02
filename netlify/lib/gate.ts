@@ -1,7 +1,13 @@
 import { USER_COOKIE } from "./accounts.ts";
 import { ADMIN_COOKIE, CARD_COOKIE, type Store, cookie, getCard, status, usable } from "./cards.ts";
 import { allowed, visitor } from "./identity.ts";
-import { landingPage, lockedPage } from "./landing.ts";
+import { buyPage, landingPage } from "./landing.ts";
+import { payReady, stripeSettings } from "./pay.ts";
+
+async function buy(store: Store, email: string, locked: boolean): Promise<Response> {
+  const s = await stripeSettings(store);
+  return buyPage(email, locked, payReady(s) ? s.packs : [], s.currency);
+}
 
 // SHA-256 of "cliptest:mp-video-assistant". Only lets the installer and the program download through; pages need an account or card.
 export const DOWNLOAD_KEY = "2abe1a4b8ac31a13ebbaebf99cc6564d5c489d277e96efc71ce7dded4fe325f8";
@@ -29,11 +35,16 @@ export async function handleGate(request: Request, next: () => Promise<Response>
     return new Response(null, { status: 303, headers });
   }
 
+  if (path === "/buy") {
+    const who = await visitor(store, request);
+    return who.user ? buy(store, who.user.email, Boolean(who.locked)) : landingPage("", "login");
+  }
+
   const download = path === "/install.ps1" || path === "/install.sh" || path.startsWith("/download/");
   if (!(download && url.searchParams.get("k") === DOWNLOAD_KEY)) {
     const who = await visitor(store, request);
     if (!allowed(who)) {
-      if (who.locked === "user" && who.user) return lockedPage(who.user.email);
+      if (who.locked === "user" && who.user) return buy(store, who.user.email, true);
       if (who.locked === "card" && who.card) return landingPage(status(who.card), "card");
       return landingPage();
     }

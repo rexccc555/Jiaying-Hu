@@ -111,6 +111,33 @@
     </section>
 
     <section class="card">
+      <h2>Stripe 收款 <span class="muted" id="stripe-state"></span></h2>
+      <div class="grid2">
+        <input id="stripe-secret" type="password" placeholder="Secret key（sk_live_… 或测试用 sk_test_…）" />
+        <input id="stripe-webhook" type="password" placeholder="Webhook 签名密钥 whsec_…（建议填）" />
+      </div>
+      <div class="row" style="margin-top:12px">
+        <span class="muted">币种</span>
+        <select id="stripe-currency"><option value="nzd">NZD 纽币</option><option value="aud">AUD 澳币</option><option value="usd">USD 美元</option><option value="cny">CNY 人民币</option></select>
+      </div>
+      <h2 style="margin:16px 0 8px;font-size:.95rem">充值套餐 <span class="muted">（最多 6 个，价格自己定）</span></h2>
+      <div id="packs"></div>
+      <div class="row" style="margin-top:10px">
+        <button type="button" id="pack-add" class="small">+ 加一个套餐</button>
+        <button type="button" class="main" id="stripe-save">保存 Stripe 设置</button>
+      </div>
+      <p class="err" id="stripe-err"></p>
+      <p class="muted" style="margin:6px 0 0">Webhook：在 Stripe 后台 → 开发者 → Webhooks → 添加端点，地址填 <code>https://takeadayoff.co.nz/api/pay/webhook</code>，事件选 <code>checkout.session.completed</code>，保存后把“签名密钥 whsec_…”填在上面。不填也能用（付款后跳回网站时会自动到账），填了更稳：就算用户付完马上关掉页面也会到账。</p>
+      <h2 style="margin:16px 0 8px;font-size:.95rem">付款记录 <span class="muted" id="pay-summary"></span></h2>
+      <div class="scroll">
+        <table>
+          <thead><tr><th>时间</th><th>账号</th><th>金额</th><th>充值时长</th></tr></thead>
+          <tbody id="pay-rows"><tr><td colspan="4" class="muted">还没有付款。</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="card">
       <h2>邮件设置（发送注册验证码）</h2>
       <div class="grid2">
         <input id="smtp-host" placeholder="SMTP 服务器" value="smtp.gmail.com" />
@@ -206,6 +233,55 @@
     $("smtp-state").textContent = "已设置 ✓";
   }
 
+  const EXAMPLE_PACKS = [
+    { name: "入门", minutes: 120, price: 19 },
+    { name: "常用", minutes: 600, price: 79 },
+    { name: "大量", minutes: 1500, price: 169 },
+  ];
+  function packRow(p = {}) {
+    const row = document.createElement("div");
+    row.className = "row pack-row";
+    row.style.marginBottom = "8px";
+    row.innerHTML = `<input class="p-name" placeholder="名称" value="${esc(p.name || "")}" style="width:140px" />
+      <input class="p-min" type="number" min="1" placeholder="分钟" value="${p.minutes || ""}" style="width:100px" /><span class="muted">分钟</span>
+      <input class="p-price" type="number" min="0.5" step="0.01" placeholder="价格" value="${p.price || ""}" style="width:110px" /><span class="muted">元</span>
+      <button type="button" class="small danger p-del">删除</button>`;
+    row.dataset.id = p.id || "";
+    row.querySelector(".p-del").addEventListener("click", () => row.remove());
+    $("packs").appendChild(row);
+  }
+  async function loadStripe() {
+    const s = await api("/api/admin/stripe");
+    $("stripe-secret").value = s.secret; $("stripe-webhook").value = s.webhookSecret; $("stripe-currency").value = s.currency || "nzd";
+    $("packs").innerHTML = "";
+    (s.packs.length ? s.packs : EXAMPLE_PACKS).forEach(packRow);
+    $("stripe-state").textContent = !s.secret ? "· 还没填密钥，用户看不到购买按钮"
+      : !s.packs.length ? "· 还没保存套餐" : s.secret.startsWith("sk_test") || s.secret.startsWith("rk_test") ? "· 测试模式（不会真扣钱）" : "· 已开启 ✓";
+    const { payments } = await api("/api/admin/payments");
+    const total = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
+    $("pay-summary").textContent = payments.length ? `· 共 ${payments.length} 笔，${total.toFixed(2)}` : "";
+    $("pay-rows").innerHTML = payments.length ? payments.map((p) => `<tr><td class="muted">${when(p.at)}</td><td>${esc(p.email)}</td>
+      <td>${(p.amount || 0).toFixed(2)} ${esc((p.currency || "").toUpperCase())}</td><td>${p.minutes} 分钟</td></tr>`).join("")
+      : '<tr><td colspan="4" class="muted">还没有付款。</td></tr>';
+  }
+  $("pack-add").addEventListener("click", () => packRow());
+  $("stripe-save").addEventListener("click", async () => {
+    $("stripe-err").textContent = "";
+    const packs = [...document.querySelectorAll(".pack-row")].map((r, i) => ({
+      id: r.dataset.id || `p${Date.now().toString(36)}${i}`,
+      name: r.querySelector(".p-name").value, minutes: Number(r.querySelector(".p-min").value), price: Number(r.querySelector(".p-price").value),
+    }));
+    try {
+      await api("/api/admin/stripe", { method: "POST", body: JSON.stringify({
+        secret: $("stripe-secret").value, webhookSecret: $("stripe-webhook").value, currency: $("stripe-currency").value, packs }) });
+      await loadStripe();
+      $("stripe-err").textContent = "";
+    } catch (err) {
+      $("stripe-err").textContent = err.message === "secret" ? "密钥格式不对，应以 sk_live_ 或 sk_test_ 开头"
+        : err.message === "webhook" ? "Webhook 签名密钥应以 whsec_ 开头" : err.message;
+    }
+  });
+
   $("smtp-save").addEventListener("click", async () => {
     $("smtp-err").textContent = "";
     try {
@@ -231,7 +307,7 @@
     try {
       await api("/api/admin/login", { method: "POST", body: JSON.stringify({ password: $("pw").value }) });
       $("pw").value = "";
-      load().then(() => loadSmtp()).catch(() => {});
+      load().then(() => Promise.all([loadSmtp(), loadStripe()])).catch(() => {});
     } catch { $("login-err").textContent = "密码不对"; }
   });
 
@@ -303,7 +379,7 @@
 
   $("refresh").addEventListener("click", () => load().catch(() => {}));
   setInterval(() => !$("panel").hidden && load().catch(() => {}), 15000);
-  load().then(() => loadSmtp()).catch(() => {});
+  load().then(() => Promise.all([loadSmtp(), loadStripe()])).catch(() => {});
 </script>
 </body>
 </html>

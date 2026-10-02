@@ -41,6 +41,7 @@ import {
 } from "./cards.ts";
 import { visitor } from "./identity.ts";
 import { type SendMail, type Smtp, codeEmail } from "./mail.ts";
+import { type StripeApi, cleanPacks, createCheckout, credit, payReady, stripeApi, stripeSettings, verifyWebhook } from "./pay.ts";
 
 const json = (data: unknown, init: number | ResponseInit = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(data), {
@@ -80,12 +81,53 @@ const clientIp = (request: Request) =>
 
 const signedIn = (user: User) => ({ "set-cookie": cookie(USER_COOKIE, user.token) });
 
-export async function handleApi(request: Request, store: Store, send: SendMail): Promise<Response> {
+export async function handleApi(request: Request, store: Store, send: SendMail, stripe: StripeApi = stripeApi): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname.replace(/\/+$/, "");
   const method = request.method;
   const now = Date.now();
+
+  if (path === "/api/pay/webhook" && method === "POST") {
+    const payload = await request.text();
+    const settings = await stripeSettings(store);
+    if (!(await verifyWebhook(payload, request.headers.get("stripe-signature") || "", settings.webhookSecret))) return fail("signature");
+    const event = JSON.parse(payload);
+    if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
+      await credit(store, event.data?.object);
+    }
+    return json({ received: true });
+  }
+
   const body = method === "POST" ? await request.json().catch(() => ({})) : {};
+
+  // ---- payments ----
+  if (path === "/api/pay/packs" && method === "GET") {
+    const settings = await stripeSettings(store);
+    return json({ ready: payReady(settings), currency: settings.currency, packs: settings.packs });
+  }
+
+  if (path === "/api/pay/checkout" && method === "POST") {
+    const user = await userByToken(store, readCookie(request, USER_COOKIE));
+    if (!user) return fail("login", 401);
+    const settings = await stripeSettings(store);
+    const pack = settings.packs.find((p) => p.id === body.pack);
+    if (!payReady(settings) || !pack) return fail("pay_off", 503);
+    try {
+      return json({ url: await createCheckout(stripe, settings, pack, user.email) });
+    } catch {
+      return fail("pay_failed", 502);
+    }
+  }
+
+  if (path === "/api/pay/confirm" && method === "GET") {
+    const id = url.searchParams.get("session_id") || "";
+    const settings = await stripeSettings(store);
+    if (!/^cs_[A-Za-z0-9_]+$/.test(id) || !settings.secret) return fail("session");
+    const session = await stripe(settings.secret, "GET", `/v1/checkout/sessions/${id}`).catch(() => null);
+    const ok = await credit(store, session);
+    const user = await getUser(store, String(session?.metadata?.email || ""));
+    return json({ ok, ...(user ? accountView(user) : {}) }, ok ? 200 : 402);
+  }
 
   // ---- accounts ----
   if (path === "/api/auth/send-code" && method === "POST") {
@@ -289,6 +331,33 @@ export async function handleApi(request: Request, store: Store, send: SendMail):
       if (!smtp.host || !smtp.user || !smtp.pass) return fail("smtp");
       await store.set("meta/smtp", smtp);
       return json({ ok: true });
+    }
+
+    if (path === "/api/admin/stripe" && method === "GET") {
+      const s = await stripeSettings(store);
+      const mask = (v: string) => (v ? `${v.slice(0, 8)}…${v.slice(-4)}` : "");
+      return json({ secret: mask(s.secret), webhookSecret: mask(s.webhookSecret), currency: s.currency, packs: s.packs });
+    }
+
+    if (path === "/api/admin/stripe" && method === "POST") {
+      const old = await stripeSettings(store);
+      const keep = (v: unknown, prev: string) => {
+        const text = String(v ?? "").trim();
+        return !text || text.includes("…") ? prev : text;
+      };
+      const secret = keep(body.secret, old.secret);
+      if (secret && !/^(sk|rk)_(live|test)_/.test(secret)) return fail("secret");
+      const webhookSecret = keep(body.webhookSecret, old.webhookSecret);
+      if (webhookSecret && !webhookSecret.startsWith("whsec_")) return fail("webhook");
+      const currency = String(body.currency || old.currency || "nzd").toLowerCase().replace(/[^a-z]/g, "").slice(0, 3) || "nzd";
+      await store.set("meta/stripe", { secret, webhookSecret, currency, packs: cleanPacks(body.packs) });
+      return json({ ok: true });
+    }
+
+    if (path === "/api/admin/payments" && method === "GET") {
+      const keys = await store.list("paid/");
+      const payments = (await Promise.all(keys.map((key) => store.get(key)))).filter(Boolean) as any[];
+      return json({ payments: payments.sort((a, b) => b.at - a.at) });
     }
 
     if (path === "/api/admin/smtp/test" && method === "POST") {

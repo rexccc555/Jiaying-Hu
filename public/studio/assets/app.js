@@ -79,7 +79,7 @@ const I18N = {
     trialFree: "🎁 免费试用 1 次",
     trialActive: "免费试用中",
     trialTitle: "免费试用已经用完啦",
-    trialSub: "希望那条成片让你多休息了一会儿。输入卡号充值时间，就能继续使用。",
+    trialSub: "希望那条成片让你多休息了一会儿。充值时长就能继续使用。",
     trialGo: "去充值",
     agentTitle: "AI 助手（必须装一个才能制作）",
     agentSub: "任选一个安装并登录即可，装好后会显示「可以用 ✓」。",
@@ -207,7 +207,7 @@ const I18N = {
     trialFree: "🎁 1 free trial",
     trialActive: "Free trial",
     trialTitle: "Your free trial is used up",
-    trialSub: "Hope that film bought you some rest. Enter a card code to add time and keep going.",
+    trialSub: "Hope that film bought you some rest. Top up to keep going.",
     trialGo: "Add time",
     agentTitle: "AI assistant (you need one to make videos)",
     agentSub: "Install and sign in to any one of them. It shows “Ready ✓” when done.",
@@ -321,7 +321,7 @@ function lockCard() {
     box.querySelector("strong").dataset.i18n = "trialTitle";
     box.querySelector("p").dataset.i18n = "trialSub";
     box.querySelector("a").dataset.i18n = "trialGo";
-    box.querySelector("a").href = "/";
+    box.querySelector("a").href = "/buy";
     applyUi();
   }
   $("locked").hidden = false;
