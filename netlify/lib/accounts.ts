@@ -1,29 +1,49 @@
 import type { Store } from "./cards.ts";
 
+export type Plan = "monthly" | "yearly" | "month";
+
+export interface FilmCharge {
+  credits: number;
+  at: number;
+  pending?: boolean;
+}
+
 export interface User {
   email: string;
   salt: string;
   hash: string;
   token: string;
   created: number;
-  minutes: number;
-  usedSec: number;
-  firstUsed: number | null;
-  lastBeat: number | null;
+  credits: number;
+  plan: Plan | null;
+  planUntil: number | null;
+  stripeCustomer: string | null;
+  subId: string | null;
+  films: Record<string, FilmCharge>;
+  lastFilmAt: number | null;
   lastSeen: number | null;
   trialStartedAt: number | null;
   trialJob: string | null;
   disabled: boolean;
+  /** Older accounts were sold page-open minutes; converted to credits on load. */
+  minutes?: number;
+  usedSec?: number;
 }
 
 export const USER_COOKIE = "clip_user";
 export const TOKEN_PREFIX = "acct_";
 // After the free film starts, the account can still open the studio this long to finish, watch and download it.
 export const TRIAL_VIEW_MS = 3 * 86_400_000;
+// After any film, the studio stays open this long so the result can be watched and downloaded.
+const FILM_VIEW_MS = 7 * 86_400_000;
+// One credit pays for one second of source video (60 credits = 1 minute).
+export const CREDITS_PER_SECOND = 1;
+// A film whose length is not known yet needs at least this balance; the rest is settled once the length is known.
+const MIN_PENDING_CREDITS = 60;
+const MAX_FILMS_KEPT = 60;
 const CODE_TTL_MS = 10 * 60_000;
 const CODE_RESEND_MS = 60_000;
 const CODE_MAX_TRIES = 5;
-const BEAT_GAP_MS = 150_000;
 
 const hex = (buf: ArrayBuffer) => Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
 export const randomHex = (bytes: number) => hex(crypto.getRandomValues(new Uint8Array(bytes)).buffer);
@@ -53,11 +73,32 @@ export async function setPassword(user: User, password: string): Promise<void> {
   user.hash = await pbkdf2(password, user.salt);
 }
 
+function upgrade(user: User): User {
+  if (typeof user.credits !== "number") {
+    const leftSec = Math.max(0, (user.minutes || 0) * 60 - (user.usedSec || 0));
+    user.credits = Math.round(leftSec);
+  }
+  delete user.minutes;
+  delete user.usedSec;
+  user.plan ??= null;
+  user.planUntil ??= null;
+  user.stripeCustomer ??= null;
+  user.subId ??= null;
+  user.films ??= {};
+  user.lastFilmAt ??= null;
+  return user;
+}
+
 export async function getUser(store: Store, email: string): Promise<User | null> {
-  return email ? ((await store.get(`user/${email}`)) as User | null) : null;
+  const user = email ? ((await store.get(`user/${email}`)) as User | null) : null;
+  return user ? upgrade(user) : null;
 }
 
 export async function saveUser(store: Store, user: User): Promise<void> {
+  const ids = Object.keys(user.films);
+  if (ids.length > MAX_FILMS_KEPT) {
+    ids.sort((a, b) => user.films[a].at - user.films[b].at).slice(0, ids.length - MAX_FILMS_KEPT).forEach((id) => delete user.films[id]);
+  }
   await store.set(`user/${user.email}`, user);
 }
 
@@ -75,10 +116,13 @@ export async function createUser(store: Store, email: string, password: string):
     hash: "",
     token: TOKEN_PREFIX + randomHex(24),
     created: Date.now(),
-    minutes: 0,
-    usedSec: 0,
-    firstUsed: null,
-    lastBeat: null,
+    credits: 0,
+    plan: null,
+    planUntil: null,
+    stripeCustomer: null,
+    subId: null,
+    films: {},
+    lastFilmAt: null,
     lastSeen: null,
     trialStartedAt: null,
     trialJob: null,
@@ -95,9 +139,7 @@ export async function deleteUser(store: Store, user: User): Promise<void> {
   await store.delete(`user/${user.email}`);
 }
 
-export function paidRemainingSec(user: User): number {
-  return Math.max(0, Math.round(user.minutes * 60 - user.usedSec));
-}
+export const planActive = (user: User, now = Date.now()) => Boolean(user.planUntil && user.planUntil > now);
 
 export function trialState(user: User, now = Date.now()): "available" | "active" | "used" {
   if (!user.trialStartedAt) return "available";
@@ -105,37 +147,83 @@ export function trialState(user: User, now = Date.now()): "available" | "active"
 }
 
 export function userUsable(user: User | null, now = Date.now()): user is User {
-  return Boolean(user && !user.disabled && (paidRemainingSec(user) > 0 || trialState(user, now) !== "used"));
+  if (!user || user.disabled) return false;
+  return (
+    planActive(user, now) ||
+    user.credits > 0 ||
+    trialState(user, now) !== "used" ||
+    Boolean(user.lastFilmAt && now - user.lastFilmAt < FILM_VIEW_MS)
+  );
 }
 
-/** Page heartbeat: bills paid minutes only; the free trial is not timed. */
 export function userBeat(user: User, now: number): User {
-  if (paidRemainingSec(user) > 0) {
-    if (user.lastBeat && now - user.lastBeat <= BEAT_GAP_MS) {
-      user.usedSec = Math.min(user.minutes * 60, user.usedSec + (now - user.lastBeat) / 1000);
-    }
-    user.firstUsed = user.firstUsed || now;
-  }
-  user.lastBeat = now;
   user.lastSeen = now;
   return user;
 }
 
-/** May this account start a film? Paid time always may; the trial covers one film (and retries of that same film). */
-export function claimFilm(user: User, job: string, now: number): boolean {
-  if (user.disabled) return false;
-  if (paidRemainingSec(user) > 0) return true;
+export const filmCost = (seconds: number) => Math.max(1, Math.ceil(seconds * CREDITS_PER_SECOND));
+
+export type FilmResult = { ok: true; charged: number; via: "plan" | "trial" | "credits" | "free" } | { ok: false; reason: "disabled" | "credits"; need: number };
+
+/**
+ * May this account start (or re-make) a film? Membership is unlimited; otherwise the one free trial film,
+ * then credits by source length. `job` is empty for the check before upload; `redo` re-makes a finished film.
+ */
+export function claimFilm(user: User, job: string, seconds: number, redo: boolean, now: number): FilmResult {
+  if (user.disabled) return { ok: false, reason: "disabled", need: 0 };
+  const secs = Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds, 4 * 3600) : 0;
+  const record = (credits: number, pending = false) => {
+    if (!job) return;
+    user.films[job] = { credits, at: now, ...(pending ? { pending: true } : {}) };
+    user.lastFilmAt = now;
+  };
+
+  if (planActive(user, now)) {
+    record(0);
+    return { ok: true, charged: 0, via: "plan" };
+  }
+
+  const known = job ? user.films[job] : undefined;
+  if (known && !redo) {
+    if (known.pending && secs > 0) {
+      const cost = Math.min(user.credits, filmCost(secs));
+      user.credits -= cost;
+      user.films[job] = { credits: cost, at: known.at };
+      return { ok: true, charged: cost, via: "credits" };
+    }
+    return { ok: true, charged: 0, via: "free" };
+  }
+
   if (!user.trialStartedAt) {
     user.trialStartedAt = now;
     user.trialJob = job || "pending";
-    return true;
+    record(0);
+    return { ok: true, charged: 0, via: "trial" };
   }
-  if (trialState(user, now) === "used") return false;
-  if (user.trialJob === "pending") {
-    if (job) user.trialJob = job;
-    return true;
+  if (trialState(user, now) === "active" && (user.trialJob === "pending" || user.trialJob === job)) {
+    if (job && user.trialJob === "pending") user.trialJob = job;
+    record(0);
+    return { ok: true, charged: 0, via: "trial" };
   }
-  return Boolean(job) && user.trialJob === job;
+
+  if (!secs) {
+    if (user.credits < MIN_PENDING_CREDITS) return { ok: false, reason: "credits", need: MIN_PENDING_CREDITS };
+    record(0, true);
+    return { ok: true, charged: 0, via: "credits" };
+  }
+  const cost = filmCost(secs);
+  if (user.credits < cost) return { ok: false, reason: "credits", need: cost };
+  if (job) {
+    user.credits -= cost;
+    record(cost);
+  }
+  return { ok: true, charged: job ? cost : 0, via: "credits" };
+}
+
+export function addMonths(from: number, months: number): number {
+  const d = new Date(from);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  return d.getTime();
 }
 
 export async function issueCode(store: Store, email: string, now: number): Promise<{ code?: string; waitSec?: number }> {

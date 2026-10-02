@@ -10,7 +10,7 @@ import {
   getUser,
   issueCode,
   normEmail,
-  paidRemainingSec,
+  planActive,
   rateLimited,
   saveUser,
   setPassword,
@@ -41,7 +41,21 @@ import {
 } from "./cards.ts";
 import { visitor } from "./identity.ts";
 import { type SendMail, type Smtp, codeEmail } from "./mail.ts";
-import { type StripeApi, cleanPacks, createCheckout, credit, payReady, stripeApi, stripeSettings, verifyWebhook } from "./pay.ts";
+import {
+  type Kind,
+  type StripeApi,
+  SITE,
+  cleanPricing,
+  createCheckout,
+  credit,
+  creditsPriceCents,
+  payReady,
+  renew,
+  stripeApi,
+  stripeSettings,
+  subscriptionEnded,
+  verifyWebhook,
+} from "./pay.ts";
 
 const json = (data: unknown, init: number | ResponseInit = 200, headers: Record<string, string> = {}) =>
   new Response(JSON.stringify(data), {
@@ -54,9 +68,11 @@ const cardView = (card: Card) => ({ ...card, remainingSec: remainingSec(card), s
 const userView = (user: User) => ({
   email: user.email,
   created: user.created,
-  minutes: user.minutes,
-  usedSec: user.usedSec,
-  remainingSec: paidRemainingSec(user),
+  credits: user.credits,
+  plan: planActive(user) ? user.plan : null,
+  planUntil: user.planUntil,
+  subscribed: Boolean(user.subId),
+  films: Object.keys(user.films).length,
   trial: trialState(user),
   trialStartedAt: user.trialStartedAt,
   lastSeen: user.lastSeen,
@@ -66,7 +82,10 @@ const accountView = (user: User) => ({
   account: true,
   email: user.email,
   code: user.token,
-  remainingSec: paidRemainingSec(user),
+  credits: user.credits,
+  plan: planActive(user) ? user.plan : null,
+  planUntil: planActive(user) ? user.planUntil : null,
+  subscribed: Boolean(user.subId),
   trial: trialState(user),
   usable: userUsable(user),
 });
@@ -92,30 +111,48 @@ export async function handleApi(request: Request, store: Store, send: SendMail, 
     const settings = await stripeSettings(store);
     if (!(await verifyWebhook(payload, request.headers.get("stripe-signature") || "", settings.webhookSecret))) return fail("signature");
     const event = JSON.parse(payload);
-    if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") {
-      await credit(store, event.data?.object);
-    }
+    const object = event.data?.object;
+    if (event.type === "checkout.session.completed" || event.type === "checkout.session.async_payment_succeeded") await credit(store, object);
+    else if (event.type === "invoice.paid" || event.type === "invoice.payment_succeeded") await renew(store, object);
+    else if (event.type === "customer.subscription.deleted") await subscriptionEnded(store, object);
     return json({ received: true });
   }
 
   const body = method === "POST" ? await request.json().catch(() => ({})) : {};
 
   // ---- payments ----
-  if (path === "/api/pay/packs" && method === "GET") {
+  if (path === "/api/pay/pricing" && method === "GET") {
     const settings = await stripeSettings(store);
-    return json({ ready: payReady(settings), currency: settings.currency, packs: settings.packs });
+    return json({ ready: payReady(settings), currency: settings.currency, pricing: settings.pricing });
   }
 
   if (path === "/api/pay/checkout" && method === "POST") {
     const user = await userByToken(store, readCookie(request, USER_COOKIE));
     if (!user) return fail("login", 401);
     const settings = await stripeSettings(store);
-    const pack = settings.packs.find((p) => p.id === body.pack);
-    if (!payReady(settings) || !pack) return fail("pay_off", 503);
+    if (!payReady(settings)) return fail("pay_off", 503);
+    const kind = String(body.kind || "") as Kind;
+    if (!["credits", "month", "monthly", "yearly"].includes(kind)) return fail("kind");
+    const credits = Math.round(Number(body.credits) || 0);
+    if (kind === "credits" && !creditsPriceCents(settings.pricing, credits)) return fail("credits");
+    if ((kind === "monthly" || kind === "yearly") && user.subId && planActive(user)) return fail("subscribed");
     try {
-      return json({ url: await createCheckout(stripe, settings, pack, user.email) });
+      return json({ url: await createCheckout(stripe, settings, user, kind, credits) });
     } catch {
       return fail("pay_failed", 502);
+    }
+  }
+
+  if (path === "/api/pay/portal" && method === "POST") {
+    const user = await userByToken(store, readCookie(request, USER_COOKIE));
+    if (!user) return fail("login", 401);
+    const settings = await stripeSettings(store);
+    if (!user.stripeCustomer || !settings.secret) return fail("no_customer");
+    try {
+      const portal = await stripe(settings.secret, "POST", "/v1/billing_portal/sessions", { customer: user.stripeCustomer, return_url: `${SITE}/buy` });
+      return json({ url: portal.url });
+    } catch {
+      return fail("portal_failed", 502);
     }
   }
 
@@ -190,7 +227,7 @@ export async function handleApi(request: Request, store: Store, send: SendMail, 
     const card = await getCard(store, String(body.code || ""));
     if (!card) return fail("card");
     if (!usable(card)) return fail(card.redeemedBy ? "card_redeemed" : "card_empty");
-    user.minutes += remainingSec(card) / 60;
+    user.credits += Math.round(remainingSec(card));
     card.redeemedBy = user.email;
     card.disabled = true;
     await saveCard(store, card);
@@ -224,9 +261,9 @@ export async function handleApi(request: Request, store: Store, send: SendMail, 
     const who = await visitor(store, request);
     if (who.admin || (who.card && !who.locked)) return json({ ok: true });
     if (!who.user) return json({ ok: false }, 401);
-    const ok = claimFilm(who.user, String(body.job || ""), now);
+    const result = claimFilm(who.user, String(body.job || "").slice(0, 64), Number(body.seconds) || 0, Boolean(body.redo), now);
     await saveUser(store, who.user);
-    return json({ ok, ...accountView(who.user) }, ok ? 200 : 403);
+    return json({ ...result, ...accountView(who.user) }, result.ok ? 200 : 403);
   }
 
   if (path === "/api/card/verify" && method === "GET") {
@@ -286,7 +323,7 @@ export async function handleApi(request: Request, store: Store, send: SendMail, 
 
     if (path === "/api/admin/users" && method === "GET") {
       const keys = await store.list("user/");
-      const users = (await Promise.all(keys.map((key) => store.get(key)))).filter(Boolean) as User[];
+      const users = (await Promise.all(keys.map((key) => getUser(store, key.slice("user/".length))))).filter(Boolean) as User[];
       return json({ users: users.sort((a, b) => b.created - a.created).map(userView) });
     }
 
@@ -304,10 +341,17 @@ export async function handleApi(request: Request, store: Store, send: SendMail, 
         else if (body.action === "reset_trial") {
           user.trialStartedAt = null;
           user.trialJob = null;
-        } else if (body.action === "add") {
-          const extra = Number(body.minutes);
-          if (!(extra >= 1 && extra <= 100000)) return fail("minutes");
-          user.minutes += extra;
+        } else if (body.action === "credits") {
+          const extra = Math.round(Number(body.credits));
+          if (!(extra >= -1_000_000 && extra <= 1_000_000 && extra !== 0)) return fail("credits");
+          user.credits = Math.max(0, user.credits + extra);
+        } else if (body.action === "days") {
+          const days = Number(body.days);
+          if (!(days >= 1 && days <= 3660)) return fail("days");
+          user.planUntil = Math.max(now, user.planUntil || 0) + days * 86_400_000;
+          if (!user.subId) user.plan = "month";
+        } else if (body.action === "end_plan") {
+          user.planUntil = null;
         } else return fail("action");
         await saveUser(store, user);
         return json({ user: userView(user) });
@@ -336,7 +380,7 @@ export async function handleApi(request: Request, store: Store, send: SendMail, 
     if (path === "/api/admin/stripe" && method === "GET") {
       const s = await stripeSettings(store);
       const mask = (v: string) => (v ? `${v.slice(0, 8)}…${v.slice(-4)}` : "");
-      return json({ secret: mask(s.secret), webhookSecret: mask(s.webhookSecret), currency: s.currency, packs: s.packs });
+      return json({ secret: mask(s.secret), webhookSecret: mask(s.webhookSecret), currency: s.currency, pricing: s.pricing });
     }
 
     if (path === "/api/admin/stripe" && method === "POST") {
@@ -350,13 +394,13 @@ export async function handleApi(request: Request, store: Store, send: SendMail, 
       const webhookSecret = keep(body.webhookSecret, old.webhookSecret);
       if (webhookSecret && !webhookSecret.startsWith("whsec_")) return fail("webhook");
       const currency = String(body.currency || old.currency || "nzd").toLowerCase().replace(/[^a-z]/g, "").slice(0, 3) || "nzd";
-      await store.set("meta/stripe", { secret, webhookSecret, currency, packs: cleanPacks(body.packs) });
+      await store.set("meta/stripe", { secret, webhookSecret, currency, pricing: cleanPricing(body.pricing) });
       return json({ ok: true });
     }
 
     if (path === "/api/admin/payments" && method === "GET") {
       const keys = await store.list("paid/");
-      const payments = (await Promise.all(keys.map((key) => store.get(key)))).filter(Boolean) as any[];
+      const payments = (await Promise.all(keys.map((key) => store.get(key)))).filter((p: any) => p && !p.hidden) as any[];
       return json({ payments: payments.sort((a, b) => b.at - a.at) });
     }
 

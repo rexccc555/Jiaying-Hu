@@ -103,11 +103,11 @@
       </div>
       <div class="scroll">
         <table>
-          <thead><tr><th>邮箱</th><th>免费试用</th><th>充值时长</th><th>已用 / 剩余</th><th>最近使用</th><th>注册</th><th></th></tr></thead>
+          <thead><tr><th>邮箱</th><th>免费试用</th><th>会员</th><th>credits</th><th>做过</th><th>最近使用</th><th>注册</th><th></th></tr></thead>
           <tbody id="user-rows"><tr><td colspan="7" class="muted">加载中…</td></tr></tbody>
         </table>
       </div>
-      <p class="muted" style="margin:10px 0 0">新用户注册后有 1 次免费试用（做 1 条片子，开始后 3 天内可以看和下载）。用户在锁定页输入卡号即可把卡里剩余时间充进账号。</p>
+      <p class="muted" style="margin:10px 0 0">新用户注册后有 1 次免费试用（做 1 条片子）。之后会员期间无限制使用，否则按视频时长扣 credits（1 分钟 = 60）。用户输入卡号时，卡里剩余每 1 分钟换 60 credits。</p>
     </section>
 
     <section class="card">
@@ -120,18 +120,28 @@
         <span class="muted">币种</span>
         <select id="stripe-currency"><option value="nzd">NZD 纽币</option><option value="aud">AUD 澳币</option><option value="usd">USD 美元</option><option value="cny">CNY 人民币</option></select>
       </div>
-      <h2 style="margin:16px 0 8px;font-size:.95rem">充值套餐 <span class="muted">（最多 6 个，价格自己定）</span></h2>
-      <div id="packs"></div>
+      <h2 style="margin:16px 0 8px;font-size:.95rem">价格</h2>
+      <div class="row">
+        <span class="muted">连续包月</span><input id="pr-monthly" type="number" step="0.01" style="width:90px" /><span class="muted">/月</span>
+        <span class="muted" style="margin-left:10px">单月</span><input id="pr-month" type="number" step="0.01" style="width:90px" />
+        <span class="muted" style="margin-left:10px">连续包年</span><input id="pr-yearly" type="number" step="0.01" style="width:90px" /><span class="muted">/年</span>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <span class="muted">1 credit =</span><input id="pr-credit" type="number" step="0.001" style="width:90px" />
+        <span class="muted" style="margin-left:10px">起充</span><input id="pr-min" type="number" style="width:90px" /><span class="muted">credits</span>
+        <span class="muted" style="margin-left:10px">满</span><input id="pr-from" type="number" style="width:90px" /><span class="muted">credits 打</span>
+        <input id="pr-discount" type="number" step="0.01" style="width:70px" /><span class="muted">（0.95 = 9.5 折）</span>
+      </div>
+      <p class="muted" style="margin:8px 0 0">计费：1 分钟视频 = 60 credits，每生成一次按原视频时长扣；会员期间不扣 credits。</p>
       <div class="row" style="margin-top:10px">
-        <button type="button" id="pack-add" class="small">+ 加一个套餐</button>
         <button type="button" class="main" id="stripe-save">保存 Stripe 设置</button>
       </div>
       <p class="err" id="stripe-err"></p>
-      <p class="muted" style="margin:6px 0 0">Webhook：在 Stripe 后台 → 开发者 → Webhooks → 添加端点，地址填 <code>https://takeadayoff.co.nz/api/pay/webhook</code>，事件选 <code>checkout.session.completed</code>，保存后把“签名密钥 whsec_…”填在上面。不填也能用（付款后跳回网站时会自动到账），填了更稳：就算用户付完马上关掉页面也会到账。</p>
+      <p class="muted" style="margin:6px 0 0">Webhook（有自动续费就必须填）：在 Stripe 后台 → Workbench → Webhook → 添加接收端，地址填 <code>https://takeadayoff.co.nz/api/pay/webhook</code>，事件勾选 <code>checkout.session.completed</code>、<code>invoice.paid</code>、<code>customer.subscription.deleted</code>，保存后把“签名密钥 whsec_…”填在上面。每月/每年续费靠它自动延长会员。</p>
       <h2 style="margin:16px 0 8px;font-size:.95rem">付款记录 <span class="muted" id="pay-summary"></span></h2>
       <div class="scroll">
         <table>
-          <thead><tr><th>时间</th><th>账号</th><th>金额</th><th>充值时长</th></tr></thead>
+          <thead><tr><th>时间</th><th>账号</th><th>金额</th><th>内容</th></tr></thead>
           <tbody id="pay-rows"><tr><td colspan="4" class="muted">还没有付款。</td></tr></tbody>
         </table>
       </div>
@@ -212,17 +222,19 @@
       return `<tr>
         <td>${e}${u.disabled ? ' <span class="tag disabled">已停用</span>' : ""}</td>
         <td><span class="tag ${u.trial}">${TRIAL[u.trial]}</span></td>
-        <td>${Math.round(u.minutes)} 分钟</td>
-        <td>${mins(u.usedSec)} / <b>${mins(u.remainingSec)}</b></td>
+        <td>${u.plan ? `<span class="tag active">${KIND[u.plan]}</span> 至 ${when(u.planUntil)}${u.subscribed ? " · 续费中" : ""}` : '<span class="muted">—</span>'}</td>
+        <td><b>${(u.credits || 0).toLocaleString()}</b></td>
+        <td>${u.films} 条</td>
         <td class="muted">${when(u.lastSeen)}</td>
         <td class="muted">${when(u.created)}</td>
         <td>
-          <button type="button" class="small" data-uact="add" data-email="${e}">加时</button>
+          <button type="button" class="small" data-uact="credits" data-email="${e}">加 credits</button>
+          <button type="button" class="small" data-uact="days" data-email="${e}">送会员</button>
           <button type="button" class="small" data-uact="reset_trial" data-email="${e}">再送一次试用</button>
           <button type="button" class="small" data-uact="${u.disabled ? "enable" : "disable"}" data-email="${e}">${u.disabled ? "启用" : "停用"}</button>
           <button type="button" class="small danger" data-uact="delete" data-email="${e}">删除</button>
         </td></tr>`;
-    }).join("") : '<tr><td colspan="7" class="muted">还没有人注册。</td></tr>';
+    }).join("") : '<tr><td colspan="8" class="muted">还没有人注册。</td></tr>';
   }
 
   async function loadSmtp() {
@@ -233,47 +245,29 @@
     $("smtp-state").textContent = "已设置 ✓";
   }
 
-  const EXAMPLE_PACKS = [
-    { name: "入门", minutes: 120, price: 19 },
-    { name: "常用", minutes: 600, price: 79 },
-    { name: "大量", minutes: 1500, price: 169 },
-  ];
-  function packRow(p = {}) {
-    const row = document.createElement("div");
-    row.className = "row pack-row";
-    row.style.marginBottom = "8px";
-    row.innerHTML = `<input class="p-name" placeholder="名称" value="${esc(p.name || "")}" style="width:140px" />
-      <input class="p-min" type="number" min="1" placeholder="分钟" value="${p.minutes || ""}" style="width:100px" /><span class="muted">分钟</span>
-      <input class="p-price" type="number" min="0.5" step="0.01" placeholder="价格" value="${p.price || ""}" style="width:110px" /><span class="muted">元</span>
-      <button type="button" class="small danger p-del">删除</button>`;
-    row.dataset.id = p.id || "";
-    row.querySelector(".p-del").addEventListener("click", () => row.remove());
-    $("packs").appendChild(row);
-  }
+  const KIND = { credits: "credits", month: "单月会员", monthly: "连续包月", yearly: "连续包年" };
+  const PRICE_FIELDS = { monthly: "pr-monthly", month: "pr-month", yearly: "pr-yearly", creditPrice: "pr-credit", minCredits: "pr-min", discountFrom: "pr-from", discount: "pr-discount" };
   async function loadStripe() {
     const s = await api("/api/admin/stripe");
     $("stripe-secret").value = s.secret; $("stripe-webhook").value = s.webhookSecret; $("stripe-currency").value = s.currency || "nzd";
-    $("packs").innerHTML = "";
-    (s.packs.length ? s.packs : EXAMPLE_PACKS).forEach(packRow);
+    Object.entries(PRICE_FIELDS).forEach(([k, id]) => ($(id).value = s.pricing[k]));
     $("stripe-state").textContent = !s.secret ? "· 还没填密钥，用户看不到购买按钮"
-      : !s.packs.length ? "· 还没保存套餐" : s.secret.startsWith("sk_test") || s.secret.startsWith("rk_test") ? "· 测试模式（不会真扣钱）" : "· 已开启 ✓";
+      : !s.webhookSecret ? "· 已开启，但还没填 Webhook（自动续费需要）"
+      : s.secret.startsWith("sk_test") || s.secret.startsWith("rk_test") ? "· 测试模式（不会真扣钱）" : "· 已开启 ✓";
     const { payments } = await api("/api/admin/payments");
     const total = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
     $("pay-summary").textContent = payments.length ? `· 共 ${payments.length} 笔，${total.toFixed(2)}` : "";
     $("pay-rows").innerHTML = payments.length ? payments.map((p) => `<tr><td class="muted">${when(p.at)}</td><td>${esc(p.email)}</td>
-      <td>${(p.amount || 0).toFixed(2)} ${esc((p.currency || "").toUpperCase())}</td><td>${p.minutes} 分钟</td></tr>`).join("")
+      <td>${(p.amount || 0).toFixed(2)} ${esc((p.currency || "").toUpperCase())}</td>
+      <td>${p.kind === "credits" ? `${(p.credits || 0).toLocaleString()} credits` : esc(KIND[p.kind] || p.kind || "")}${p.renewal ? "（续费）" : ""}</td></tr>`).join("")
       : '<tr><td colspan="4" class="muted">还没有付款。</td></tr>';
   }
-  $("pack-add").addEventListener("click", () => packRow());
   $("stripe-save").addEventListener("click", async () => {
     $("stripe-err").textContent = "";
-    const packs = [...document.querySelectorAll(".pack-row")].map((r, i) => ({
-      id: r.dataset.id || `p${Date.now().toString(36)}${i}`,
-      name: r.querySelector(".p-name").value, minutes: Number(r.querySelector(".p-min").value), price: Number(r.querySelector(".p-price").value),
-    }));
+    const pricing = Object.fromEntries(Object.entries(PRICE_FIELDS).map(([k, id]) => [k, Number($(id).value)]));
     try {
       await api("/api/admin/stripe", { method: "POST", body: JSON.stringify({
-        secret: $("stripe-secret").value, webhookSecret: $("stripe-webhook").value, currency: $("stripe-currency").value, packs }) });
+        secret: $("stripe-secret").value, webhookSecret: $("stripe-webhook").value, currency: $("stripe-currency").value, pricing }) });
       await loadStripe();
       $("stripe-err").textContent = "";
     } catch (err) {
@@ -348,10 +342,14 @@
         if (act === "delete") {
           if (!confirm(`删除用户 ${email}？`)) return;
           await api(path, { method: "DELETE" });
-        } else if (act === "add") {
-          const extra = prompt(`给 ${email} 加多少分钟？`, "60");
+        } else if (act === "credits") {
+          const extra = prompt(`给 ${email} 加多少 credits？（60 = 1 分钟视频，负数是扣）`, "600");
           if (!extra) return;
-          await api(path, { method: "POST", body: JSON.stringify({ action: "add", minutes: Number(extra) }) });
+          await api(path, { method: "POST", body: JSON.stringify({ action: "credits", credits: Number(extra) }) });
+        } else if (act === "days") {
+          const days = prompt(`送 ${email} 多少天会员？`, "30");
+          if (!days) return;
+          await api(path, { method: "POST", body: JSON.stringify({ action: "days", days: Number(days) }) });
         } else {
           await api(path, { method: "POST", body: JSON.stringify({ action: act }) });
         }

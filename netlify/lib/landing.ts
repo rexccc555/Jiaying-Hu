@@ -1,5 +1,3 @@
-import type { Pack } from "./pay.ts";
-
 const CARD_MESSAGES: Record<string, string> = {
   wrong: "卡号不对，再检查一下",
   used_up: "这张卡的时间已用完，请联系我们续时",
@@ -89,7 +87,7 @@ const STYLE = `
   }
 `;
 
-const page = (title: string, body: string, status = 401) =>
+export const page = (title: string, body: string, status = 401) =>
   new Response(
     `<!doctype html>
 <html lang="zh-CN">
@@ -108,17 +106,17 @@ ${body}
     { status, headers: { "content-type": "text/html; charset=utf-8", "cache-control": "no-store" } },
   );
 
-const HEADER = `<header>
+export const HEADER = `<header>
   <a class="logo" href="/"><i>🌴</i><b>takeaday<span>off</span></b></a>
   <div class="pill">Windows · Mac</div>
 </header>`;
 
-const FOOTER = `<footer>
+export const FOOTER = `<footer>
   <div>takeadayoff · 把时间还给你</div>
   <div>© ${new Date().getFullYear()} takeadayoff.co.nz</div>
 </footer>`;
 
-const SCRIPT = `<script>
+export const SCRIPT = `<script>
 const $ = (s) => document.querySelector(s);
 const ERR = {
   email: "邮箱格式不对", exists: "这个邮箱已经注册过了，直接登录就好", no_account: "这个邮箱还没注册",
@@ -243,73 +241,4 @@ export function landingPage(cardReason = "", tab = "register"): Response {
 ${FOOTER}
 ${SCRIPT}`;
   return page("takeadayoff · 拍完就去休息，剪辑交给我们", body);
-}
-
-const PRICE_SYMBOL: Record<string, string> = { nzd: "NZ$", aud: "A$", usd: "US$", cny: "¥", eur: "€", gbp: "£" };
-
-export function buyPage(email: string, locked: boolean, packs: Pack[], currency: string): Response {
-  const safe = email.replace(/[<>&"]/g, "");
-  const symbol = PRICE_SYMBOL[currency] || currency.toUpperCase() + " ";
-  const top = locked
-    ? `<div class="gift"><i>☕</i><div><b>免费试用已经用完啦</b><br/>希望那条成片让你多休息了一会儿。充值后就能继续使用。</div></div>`
-    : `<div class="gift"><i>⏳</i><div><b>充值制作时长</b><br/>打开制作页面期间才计时，关掉就暂停。</div></div>`;
-  const best = packs.length > 1 ? packs.reduce((a, b) => (b.price / b.minutes < a.price / a.minutes ? b : a)) : null;
-  const packList = packs.length
-    ? `<div class="packs">${packs
-        .map(
-          (p) => `<button type="button" class="pack" data-pack="${p.id}">
-        ${best && best.id === p.id ? '<span class="hot">最划算</span>' : ""}
-        <b>${p.name.replace(/[<>&"]/g, "")}</b><span>${p.minutes} 分钟</span><em>${symbol}${p.price}</em></button>`,
-        )
-        .join("")}</div><p class="msg" id="pay-msg"></p>
-    <p class="fine">由 Stripe 安全收款，支持银行卡、Apple Pay、Google Pay。付款成功后时长自动到账。</p>
-    <div class="or"><span>或者用卡号充值</span></div>`
-    : "";
-  const body = `${HEADER}
-<main style="grid-template-columns:minmax(0,1fr);max-width:560px">
-  <aside class="panel" style="position:static">
-    ${top}
-    <p class="lead" style="font-size:14px;margin-bottom:14px">当前账号：<b>${safe}</b></p>
-    <div id="paid" class="gift" hidden style="border-color:#9fd9b9;background:#effaf3"><i>✅</i><div><b>付款成功，时长已到账</b><br/>正在带你回去…</div></div>
-    ${packList}
-    <form class="on" data-api="/api/auth/redeem">
-      <label>卡号</label>
-      <input class="card-input" name="code" autocomplete="off" spellcheck="false" placeholder="MP-XXXX-XXXX" required />
-      <button class="go" type="submit">用卡号充值</button>
-      <p class="msg"></p>
-      <div class="links">${locked ? "<span></span>" : '<a href="/">返回</a>'}<a href="/__logout">退出登录</a></div>
-    </form>
-  </aside>
-</main>
-${FOOTER}
-${SCRIPT}
-<script>
-document.querySelectorAll("[data-pack]").forEach((btn) => btn.addEventListener("click", async () => {
-  const msg = document.getElementById("pay-msg");
-  document.querySelectorAll("[data-pack]").forEach((b) => (b.disabled = true));
-  msg.className = "msg ok"; msg.textContent = "正在打开付款页面…";
-  const res = await fetch("/api/pay/checkout", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pack: btn.dataset.pack }) });
-  const data = await res.json().catch(() => ({}));
-  if (data.url) { location.href = data.url; return; }
-  document.querySelectorAll("[data-pack]").forEach((b) => (b.disabled = false));
-  msg.className = "msg"; msg.textContent = "暂时无法付款，请稍后再试或联系我们";
-}));
-const paid = new URLSearchParams(location.search).get("paid");
-if (paid) {
-  (async () => {
-    for (let i = 0; i < 6; i++) {
-      const res = await fetch("/api/pay/confirm?session_id=" + encodeURIComponent(paid), { cache: "no-store" });
-      if (res.ok) {
-        document.getElementById("paid").hidden = false;
-        setTimeout(() => (location.href = "/"), 1800);
-        return;
-      }
-      await new Promise((r) => setTimeout(r, 2000));
-    }
-    const msg = document.getElementById("pay-msg");
-    if (msg) { msg.className = "msg"; msg.textContent = "还没确认到付款，稍等一会儿刷新页面；如果已扣款请联系我们"; }
-  })();
-}
-</script>`;
-  return page(locked ? "takeadayoff · 继续使用" : "takeadayoff · 充值", body, locked ? 403 : 200);
 }

@@ -79,8 +79,12 @@ const I18N = {
     trialFree: "🎁 免费试用 1 次",
     trialActive: "免费试用中",
     trialTitle: "免费试用已经用完啦",
-    trialSub: "希望那条成片让你多休息了一会儿。充值时长就能继续使用。",
-    trialGo: "去充值",
+    trialSub: "希望那条成片让你多休息了一会儿。开通会员（NZ$9.9/月起，无限制使用）或按时长充值 credits 就能继续。",
+    trialGo: "开通会员 / 充值",
+    member: (d) => `👑 会员 · 至 ${d}`,
+    creditsLeft: (n) => `${n.toLocaleString()} credits`,
+    creditsTitle: "credits 不够了",
+    creditsShort: (need, have) => `这条视频需要 ${need.toLocaleString()} credits（1 分钟 = 60），你还剩 ${have.toLocaleString()}。\n\n去开通会员（无限制使用）或充值 credits 吗？`,
     agentTitle: "AI 助手（必须装一个才能制作）",
     agentSub: "任选一个安装并登录即可，装好后会显示「可以用 ✓」。",
     agentNone: "还没有可用的 AI 助手，请先在下面装一个，否则无法开始制作。",
@@ -207,8 +211,12 @@ const I18N = {
     trialFree: "🎁 1 free trial",
     trialActive: "Free trial",
     trialTitle: "Your free trial is used up",
-    trialSub: "Hope that film bought you some rest. Top up to keep going.",
-    trialGo: "Add time",
+    trialSub: "Hope that film bought you some rest. Get a membership (from NZ$9.9/month, unlimited) or top up credits to keep going.",
+    trialGo: "Membership / top up",
+    member: (d) => `👑 Member · until ${d}`,
+    creditsLeft: (n) => `${n.toLocaleString()} credits`,
+    creditsTitle: "Not enough credits",
+    creditsShort: (need, have) => `This video needs ${need.toLocaleString()} credits (60 per minute) and you have ${have.toLocaleString()}.\n\nGet a membership (unlimited) or top up credits?`,
     agentTitle: "AI assistant (you need one to make videos)",
     agentSub: "Install and sign in to any one of them. It shows “Ready ✓” when done.",
     agentNone: "No AI assistant is ready yet. Install one below, otherwise videos can’t be made.",
@@ -327,35 +335,74 @@ function lockCard() {
   $("locked").hidden = false;
 }
 
-/** Accounts on the free trial get one film; ask the site before starting (or re-making) one. */
-async function claimFilm(jobId) {
+const UNMEASURED = "mpva.unmeasured";
+const unmeasured = new Set(JSON.parse(localStorage.getItem(UNMEASURED) || "[]"));
+const saveUnmeasured = () => localStorage.setItem(UNMEASURED, JSON.stringify([...unmeasured]));
+
+function videoSeconds(file) {
+  return new Promise((resolve) => {
+    const video = document.createElement("video");
+    const url = URL.createObjectURL(file);
+    const done = (value) => { URL.revokeObjectURL(url); resolve(value); };
+    const timer = setTimeout(() => done(0), 8000);
+    video.preload = "metadata";
+    video.onloadedmetadata = () => { clearTimeout(timer); done(Number.isFinite(video.duration) ? video.duration : 0); };
+    video.onerror = () => { clearTimeout(timer); done(0); };
+    video.src = url;
+  });
+}
+
+/**
+ * Accounts: membership is unlimited, otherwise the one free trial, then credits by the source length.
+ * Ask the site before starting or re-making a film (cards and admin always pass).
+ */
+async function claimFilm(jobId, seconds = 0, redo = false) {
   if (!ON_SITE || !card.account) return;
   const res = await fetch("/api/card/film", {
     method: "POST",
     cache: "no-store",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ job: jobId || "" }),
+    body: JSON.stringify({ job: jobId || "", seconds, redo }),
   });
   const data = await res.json().catch(() => ({}));
-  if (data.trial) card.trial = data.trial;
-  if (typeof data.remainingSec === "number") card.remainingSec = data.remainingSec;
+  ["trial", "credits", "plan", "planUntil"].forEach((k) => k in data && (card[k] = data[k]));
   renderTimeLeft();
-  if (!res.ok) {
-    lockCard();
-    throw new Error(t("trialTitle"));
+  if (res.ok) {
+    if (jobId && !seconds && data.via === "credits") { unmeasured.add(jobId); saveUnmeasured(); }
+    return;
   }
+  if (data.reason === "credits") {
+    if (window.confirm(t("creditsShort")(data.need, card.credits || 0))) location.href = "/buy";
+    throw new Error(t("creditsTitle"));
+  }
+  lockCard();
+  throw new Error(t("trialTitle"));
+}
+
+function settleLength(job) {
+  if (!job || !unmeasured.has(job.id) || !(job.duration > 0)) return;
+  unmeasured.delete(job.id);
+  saveUnmeasured();
+  claimFilm(job.id, job.duration).catch(() => {});
 }
 
 function renderTimeLeft() {
   const badge = $("time-left");
+  if (card.account) {
+    badge.hidden = false;
+    const day = card.planUntil ? new Date(card.planUntil).toLocaleDateString(state.ui === "zh" ? "zh-CN" : "en-NZ", { month: "numeric", day: "numeric" }) : "";
+    badge.textContent = card.plan ? t("member")(day)
+      : card.credits > 0 ? t("creditsLeft")(card.credits)
+      : card.trial === "available" ? t("trialFree")
+      : card.trial === "active" ? t("trialActive") : t("creditsLeft")(0);
+    badge.classList.toggle("low", !card.plan && card.trial === "used" && card.credits < 600);
+    return;
+  }
   badge.hidden = !card.admin && card.remainingSec === null;
   if (badge.hidden) return;
   const minutes = Math.max(0, Math.ceil((card.remainingSec || 0) / 60));
-  const onTrial = card.account && minutes <= 0;
-  badge.textContent = card.admin ? t("timeAdmin")
-    : onTrial ? t(card.trial === "available" ? "trialFree" : "trialActive")
-    : t("timeLeft")(minutes);
-  badge.classList.toggle("low", !card.admin && !onTrial && minutes <= 5);
+  badge.textContent = card.admin ? t("timeAdmin") : t("timeLeft")(minutes);
+  badge.classList.toggle("low", !card.admin && minutes <= 5);
 }
 
 async function loadCard() {
@@ -372,7 +419,7 @@ async function cardBeat() {
   if (res.status === 403) return lockCard();
   const data = await res.json().catch(() => ({}));
   if (typeof data.remainingSec === "number") card.remainingSec = data.remainingSec;
-  if (data.trial) card.trial = data.trial;
+  ["trial", "credits", "plan", "planUntil"].forEach((k) => k in data && (card[k] = data[k]));
   renderTimeLeft();
 }
 
@@ -597,7 +644,8 @@ async function startJob() {
   form.append("agent", $("agent-runner").value || "");
   form.append("quality", $("agent-quality").value);
   try {
-    await claimFilm("");
+    const seconds = card.account ? await videoSeconds(state.file) : 0;
+    await claimFilm("", seconds);
     const progress = (p) => ($("upload-help").textContent = `${t("uploading")} ${Math.round(p * 100)}%`);
     if (state.file.size > CHUNK) form.append("staged", await stageFile(state.file, progress));
     else form.append("files", state.file, state.file.name);
@@ -606,7 +654,7 @@ async function startJob() {
       else form.append("refs", r.file, r.file.name);
     }
     const job = await api("/api/jobs", { method: "POST", body: form });
-    await claimFilm(job.id);
+    await claimFilm(job.id, seconds);
     localStorage.setItem(STORE, job.id);
     state.notified = false;
     setJob(job);
@@ -622,6 +670,7 @@ async function startJob() {
 
 function setJob(job) {
   state.job = job;
+  settleLength(job);
   renderJob();
 }
 
@@ -887,7 +936,7 @@ $("btn-new").addEventListener("click", resetHome);
 $("btn-rebrief").addEventListener("click", async () => {
   if (!state.job || !window.confirm(t("redoConfirm"))) return;
   try {
-    await claimFilm(state.job.id);
+    await claimFilm(state.job.id, state.job.duration || 0, true);
   } catch {
     return;
   }
