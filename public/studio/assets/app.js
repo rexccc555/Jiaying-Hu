@@ -47,6 +47,10 @@ const I18N = {
     loginGo: "进入",
     loginNeeded: "请先输入访问密码",
     loginWrong: "密码不对，再试一次",
+    qualityLabel: "制作模式",
+    qualityBest: "效果最好（推荐）",
+    qualityDefault: "账号默认（更省额度）",
+    qualityHelp: "效果最好：自动选你账号里最强的模型，画面更精致、返工更少。账号不支持时会自动改用默认模型。",
     lockedTitle: "这张卡的时间已用完",
     lockedSub: "需要继续使用的话，请联系我们续时。",
     lockedGo: "换一张卡",
@@ -146,6 +150,10 @@ const I18N = {
     loginGo: "Enter",
     loginNeeded: "Please enter the access password first",
     loginWrong: "Wrong password, try again",
+    qualityLabel: "Mode",
+    qualityBest: "Best result (recommended)",
+    qualityDefault: "Account default (uses less quota)",
+    qualityHelp: "Best result picks the strongest model on your account: more polished visuals and fewer redos. If your account can't use it, the default model is used instead.",
     lockedTitle: "This card has no time left",
     lockedSub: "To keep going, contact us to add more time.",
     lockedGo: "Use another card",
@@ -492,6 +500,7 @@ async function startJob() {
   form.append("title", state.file.name.replace(/\.[^.]+$/, ""));
   form.append("auto_film", "1");
   form.append("agent", $("agent-runner").value || "");
+  form.append("quality", $("agent-quality").value);
   try {
     const progress = (p) => ($("upload-help").textContent = `${t("uploading")} ${Math.round(p * 100)}%`);
     if (state.file.size > CHUNK) form.append("staged", await stageFile(state.file, progress));
@@ -767,7 +776,7 @@ $("btn-film").addEventListener("click", async () => {
   if (!state.job) return;
   try {
     if (state.job.status === "failed") await act(`/api/jobs/${state.job.id}/regenerate`, {});
-    else await act(`/api/jobs/${state.job.id}/film`, { agent: $("agent-runner").value || "" });
+    else await act(`/api/jobs/${state.job.id}/film`, { agent: $("agent-runner").value || "", quality: $("agent-quality").value });
   } catch (err) {
     $("work-error").textContent = err.message;
   }
@@ -810,6 +819,8 @@ async function restore() {
   }
 }
 
+$("agent-quality").value = localStorage.getItem("mpva.quality") === "default" ? "default" : "best";
+$("agent-quality").addEventListener("change", (e) => localStorage.setItem("mpva.quality", e.target.value));
 applyUi();
 $("work-tip").textContent = t("tips")[0];
 setInterval(rotateTip, 8000);

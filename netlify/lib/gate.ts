@@ -3,7 +3,7 @@ import { CARD_COOKIE, type Store, cookie, getCard, readCookie, status, usable, v
 // SHA-256 of "cliptest:mp-video-assistant". Only lets the installer and the program download through; pages need a card.
 export const DOWNLOAD_KEY = "2abe1a4b8ac31a13ebbaebf99cc6564d5c489d277e96efc71ce7dded4fe325f8";
 const KEY_PLACEHOLDER = "__CLIP_KEY__";
-const INJECT = new Set(["/", "/index.html", "/install.ps1"]);
+const INJECT = new Set(["/", "/index.html", "/install.ps1", "/install.sh"]);
 
 const MESSAGES: Record<string, string> = {
   wrong: "卡号不对，再检查一下 · Card not recognised",
@@ -76,7 +76,7 @@ export async function handleGate(request: Request, next: () => Promise<Response>
   }
 
   const who = await visitor(store, request);
-  const download = path === "/install.ps1" || path.startsWith("/download/");
+  const download = path === "/install.ps1" || path === "/install.sh" || path.startsWith("/download/");
   if (!who.admin && !who.card && !(download && url.searchParams.get("k") === DOWNLOAD_KEY)) {
     const stale = await getCard(store, readCookie(request, CARD_COOKIE));
     return loginPage(stale ? status(stale) : "");
