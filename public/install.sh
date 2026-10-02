@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 echo ""
-echo "Installing MP Video Assistant... (about a minute)"
+echo "Installing takeadayoff... (about a minute)"
 
 arch="$(uname -m)"
 dir="$HOME/Library/Application Support/MPVideoAssistant"

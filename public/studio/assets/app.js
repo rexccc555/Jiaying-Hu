@@ -1,7 +1,7 @@
 const I18N = {
   zh: {
-    heroTitle: "把口播视频，变成好看的动态短片",
-    heroSub: "拖进原片就行。人物、标题、动画和音效一次做好，你说的每一句话都原样保留。",
+    heroTitle: "拍完就去休息吧，剪辑交给我们",
+    heroSub: "拖进原片就行。抠像、字幕、动画和音效一次做好，你说的每一句话都原样保留。去喝杯咖啡，回来就是能发的成片。",
     drop: "把视频拖到这里",
     dropSub: "或点击选择文件 · 手机拍的就可以",
     repick: "换一个",
@@ -76,6 +76,11 @@ const I18N = {
     lockedGo: "换一张卡",
     timeLeft: (m) => `剩余 ${m} 分钟`,
     timeAdmin: "管理员",
+    trialFree: "🎁 免费试用 1 次",
+    trialActive: "免费试用中",
+    trialTitle: "免费试用已经用完啦",
+    trialSub: "希望那条成片让你多休息了一会儿。输入卡号充值时间，就能继续使用。",
+    trialGo: "去充值",
     agentTitle: "AI 助手（必须装一个才能制作）",
     agentSub: "任选一个安装并登录即可，装好后会显示「可以用 ✓」。",
     agentNone: "还没有可用的 AI 助手，请先在下面装一个，否则无法开始制作。",
@@ -118,13 +123,13 @@ const I18N = {
     redoLabel: "想换个感觉重做？",
     redo: "按这个要求重做",
     redoConfirm: "重做会覆盖现在这版，确定吗？",
-    titleWorking: (p) => `制作中 ${p}% · MP Video Assistant`,
-    titleDone: "✓ 做好了 · MP Video Assistant",
+    titleWorking: (p) => `制作中 ${p}% · takeadayoff`,
+    titleDone: "✓ 做好了 · takeadayoff",
     notify: "你的视频做好了，回来看看吧！",
   },
   en: {
-    heroTitle: "Turn a talking video into a polished motion short",
-    heroSub: "Just drop in the original. Cut-out, titles, animation and sound are done for you, and every word you said stays exactly as it was.",
+    heroTitle: "Shoot it. Take a day off. We'll cut it.",
+    heroSub: "Just drop in the original. Cut-out, captions, animation and sound are done for you, and every word stays exactly as spoken. Grab a coffee and come back to a film you can post.",
     drop: "Drop your video here",
     dropSub: "or click to choose · phone footage is fine",
     repick: "Change",
@@ -199,6 +204,11 @@ const I18N = {
     lockedGo: "Use another card",
     timeLeft: (m) => `${m} min left`,
     timeAdmin: "Admin",
+    trialFree: "🎁 1 free trial",
+    trialActive: "Free trial",
+    trialTitle: "Your free trial is used up",
+    trialSub: "Hope that film bought you some rest. Enter a card code to add time and keep going.",
+    trialGo: "Add time",
     agentTitle: "AI assistant (you need one to make videos)",
     agentSub: "Install and sign in to any one of them. It shows “Ready ✓” when done.",
     agentNone: "No AI assistant is ready yet. Install one below, otherwise videos can’t be made.",
@@ -241,8 +251,8 @@ const I18N = {
     redoLabel: "Want a different feel?",
     redo: "Redo with this",
     redoConfirm: "Redoing replaces this version. Continue?",
-    titleWorking: (p) => `Making ${p}% · MP Video Assistant`,
-    titleDone: "✓ Ready · MP Video Assistant",
+    titleWorking: (p) => `Making ${p}% · takeadayoff`,
+    titleDone: "✓ Ready · takeadayoff",
     notify: "Your video is ready!",
   },
 };
@@ -266,7 +276,7 @@ const BASE = ON_SITE ? "http://127.0.0.1:1780" : "";
 const KEY_STORE = "mpva.key";
 const CHUNK = 32 * 1024 * 1024;
 
-const card = { code: "", admin: false, remainingSec: null };
+const card = { code: "", admin: false, account: false, trial: "", remainingSec: null };
 
 function withKey(url) {
   if (!url) return url;
@@ -306,7 +316,34 @@ async function stageFile(file, onProgress) {
 
 function lockCard() {
   card.code = "";
+  if (card.account) {
+    const box = $("locked");
+    box.querySelector("strong").dataset.i18n = "trialTitle";
+    box.querySelector("p").dataset.i18n = "trialSub";
+    box.querySelector("a").dataset.i18n = "trialGo";
+    box.querySelector("a").href = "/";
+    applyUi();
+  }
   $("locked").hidden = false;
+}
+
+/** Accounts on the free trial get one film; ask the site before starting (or re-making) one. */
+async function claimFilm(jobId) {
+  if (!ON_SITE || !card.account) return;
+  const res = await fetch("/api/card/film", {
+    method: "POST",
+    cache: "no-store",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ job: jobId || "" }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (data.trial) card.trial = data.trial;
+  if (typeof data.remainingSec === "number") card.remainingSec = data.remainingSec;
+  renderTimeLeft();
+  if (!res.ok) {
+    lockCard();
+    throw new Error(t("trialTitle"));
+  }
 }
 
 function renderTimeLeft() {
@@ -314,8 +351,11 @@ function renderTimeLeft() {
   badge.hidden = !card.admin && card.remainingSec === null;
   if (badge.hidden) return;
   const minutes = Math.max(0, Math.ceil((card.remainingSec || 0) / 60));
-  badge.textContent = card.admin ? t("timeAdmin") : t("timeLeft")(minutes);
-  badge.classList.toggle("low", !card.admin && minutes <= 5);
+  const onTrial = card.account && minutes <= 0;
+  badge.textContent = card.admin ? t("timeAdmin")
+    : onTrial ? t(card.trial === "available" ? "trialFree" : "trialActive")
+    : t("timeLeft")(minutes);
+  badge.classList.toggle("low", !card.admin && !onTrial && minutes <= 5);
 }
 
 async function loadCard() {
@@ -332,6 +372,7 @@ async function cardBeat() {
   if (res.status === 403) return lockCard();
   const data = await res.json().catch(() => ({}));
   if (typeof data.remainingSec === "number") card.remainingSec = data.remainingSec;
+  if (data.trial) card.trial = data.trial;
   renderTimeLeft();
 }
 
@@ -556,6 +597,7 @@ async function startJob() {
   form.append("agent", $("agent-runner").value || "");
   form.append("quality", $("agent-quality").value);
   try {
+    await claimFilm("");
     const progress = (p) => ($("upload-help").textContent = `${t("uploading")} ${Math.round(p * 100)}%`);
     if (state.file.size > CHUNK) form.append("staged", await stageFile(state.file, progress));
     else form.append("files", state.file, state.file.name);
@@ -564,6 +606,7 @@ async function startJob() {
       else form.append("refs", r.file, r.file.name);
     }
     const job = await api("/api/jobs", { method: "POST", body: form });
+    await claimFilm(job.id);
     localStorage.setItem(STORE, job.id);
     state.notified = false;
     setJob(job);
@@ -657,7 +700,7 @@ function renderWork(job) {
   $("eta").hidden = stopped;
   $("eta-fill").style.width = `${pct}%`;
   $("eta-text").innerHTML = html;
-  document.title = stopped ? "MP Video Assistant" : t("titleWorking")(pct);
+  document.title = stopped ? "takeadayoff" : t("titleWorking")(pct);
 }
 
 function renderDone(job) {
@@ -675,7 +718,7 @@ function renderDone(job) {
   if (!state.notified) {
     state.notified = true;
     if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
-      try { new Notification("MP Video Assistant", { body: t("notify") }); } catch {}
+      try { new Notification("takeadayoff", { body: t("notify") }); } catch {}
     }
   }
 }
@@ -729,7 +772,7 @@ function resetHome() {
   state.refs = [];
   renderRefs();
   document.querySelectorAll(".chip.on").forEach((el) => el.classList.remove("on"));
-  document.title = "MP Video Assistant";
+  document.title = "takeadayoff";
   show("step-upload");
   updateStart();
 }
@@ -829,6 +872,7 @@ $("agent-setup").addEventListener("click", async (e) => {
 $("btn-film").addEventListener("click", async () => {
   if (!state.job) return;
   try {
+    await claimFilm(state.job.id);
     if (state.job.status === "failed") await act(`/api/jobs/${state.job.id}/regenerate`, {});
     else await act(`/api/jobs/${state.job.id}/film`, { agent: $("agent-runner").value || "", quality: $("agent-quality").value });
   } catch (err) {
@@ -842,6 +886,11 @@ $("btn-stop").addEventListener("click", async () => {
 $("btn-new").addEventListener("click", resetHome);
 $("btn-rebrief").addEventListener("click", async () => {
   if (!state.job || !window.confirm(t("redoConfirm"))) return;
+  try {
+    await claimFilm(state.job.id);
+  } catch {
+    return;
+  }
   state.notified = false;
   show("step-work");
   await act(`/api/jobs/${state.job.id}/regenerate`, { brief: ($("ready-brief").value || "").trim() });

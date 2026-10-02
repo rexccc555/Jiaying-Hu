@@ -14,6 +14,7 @@ export interface Card {
   created: number;
   firstUsed: number | null;
   lastBeat: number | null;
+  redeemedBy?: string;
 }
 
 export const CARD_COOKIE = "clip_card";
@@ -47,6 +48,7 @@ export function usable(card: Card | null): card is Card {
 }
 
 export function status(card: Card): string {
+  if (card.redeemedBy) return "redeemed";
   if (card.disabled) return "disabled";
   if (remainingSec(card) <= 0) return "used_up";
   return card.firstUsed ? "active" : "new";
@@ -131,11 +133,4 @@ export function readCookie(request: Request, name: string): string {
 
 export function cookie(name: string, value: string, maxAge = 2592000): string {
   return `${name}=${encodeURIComponent(value)}; Path=/; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
-}
-
-/** Who is signed in through the browser: a usable card, the admin, or nobody. */
-export async function visitor(store: Store, request: Request): Promise<{ admin: boolean; card: Card | null }> {
-  if (await isAdmin(store, readCookie(request, ADMIN_COOKIE))) return { admin: true, card: null };
-  const card = await getCard(store, readCookie(request, CARD_COOKIE));
-  return { admin: false, card: usable(card) ? card : null };
 }

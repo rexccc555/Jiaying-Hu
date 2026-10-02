@@ -1,7 +1,7 @@
 $ErrorActionPreference = "Stop"
 $ProgressPreference = "SilentlyContinue"
 Write-Host ""
-Write-Host "Installing MP Video Assistant... (about a minute)"
+Write-Host "Installing takeadayoff... (about a minute)"
 
 $dir = Join-Path $env:LOCALAPPDATA "MPVideoAssistant"
 $exe = Join-Path $dir "MPVideoAssistant.exe"
