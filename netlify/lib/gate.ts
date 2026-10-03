@@ -15,11 +15,12 @@ async function buy(store: Store, user: User, locked: boolean): Promise<Response>
 export const DOWNLOAD_KEY = "2abe1a4b8ac31a13ebbaebf99cc6564d5c489d277e96efc71ce7dded4fe325f8";
 const KEY_PLACEHOLDER = "__CLIP_KEY__";
 const INJECT = new Set(["/", "/index.html", "/install.ps1", "/install.sh"]);
+const OPEN = new Set(["/logo.svg", "/takeadayoff-avatar.png"]);
 
 export async function handleGate(request: Request, next: () => Promise<Response>, store: Store): Promise<Response> {
   const url = new URL(request.url);
   const path = url.pathname;
-  if (path.startsWith("/api/") || path === "/admin" || path.startsWith("/admin/")) return next();
+  if (path.startsWith("/api/") || path === "/admin" || path.startsWith("/admin/") || OPEN.has(path)) return next();
 
   if (path === "/__gate" && request.method === "POST") {
     const form = await request.formData();

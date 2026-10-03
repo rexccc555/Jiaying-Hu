@@ -24,8 +24,7 @@ const STYLE = `
   .b3 { width: 360px; height: 360px; background: #fff0c2; top: 40%; left: 38%; opacity: .35; }
   header { max-width: 1160px; margin: 0 auto; padding: 22px 24px; display: flex; align-items: center; justify-content: space-between; }
   .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 19px; letter-spacing: -.01em; text-decoration: none; }
-  .logo i { width: 34px; height: 34px; border-radius: 11px; display: grid; place-items: center; font-style: normal; font-size: 17px;
-    background: linear-gradient(135deg, var(--coral), var(--sun)); box-shadow: 0 8px 20px -10px var(--coral); }
+  .logo img { width: 34px; height: 34px; display: block; filter: drop-shadow(0 6px 10px rgba(255,122,89,.35)); }
   .logo span { color: var(--coral); }
   .top-right { display: flex; align-items: center; gap: 10px; }
   .lang { display: flex; gap: 4px; background: #fff; padding: 4px; border-radius: 999px; box-shadow: 0 2px 10px -6px rgba(0,0,0,.3); }
@@ -105,6 +104,7 @@ export const page = (title: string, body: string, status = 401, titleEn = "takea
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" type="image/svg+xml" href="/logo.svg" />
 <title data-zh="${attr(title)}" data-title-en="${attr(titleEn)}">${title}</title>
 <meta name="description" content="拍完就去休息吧，剪辑交给 takeadayoff。拖进口播视频，自动抠像、字幕、动画和音效，原话一字不改。" />
 <style>${STYLE}</style>
@@ -118,7 +118,7 @@ ${body}
   );
 
 export const HEADER = `<header>
-  <a class="logo" href="/"><i>🌴</i><b>takeaday<span>off</span></b></a>
+  <a class="logo" href="/"><img src="/logo.svg" alt="" /><b>takeaday<span>off</span></b></a>
   <div class="top-right">
     <div class="pill">Windows · Mac</div>
     <div class="lang"><button type="button" data-lang="en">EN</button><button type="button" data-lang="zh" class="on">中文</button></div>
