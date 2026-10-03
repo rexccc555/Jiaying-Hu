@@ -71,10 +71,6 @@ const I18N = {
     qualityBest: "效果最好（推荐）",
     qualityDefault: "账号默认（更省额度）",
     qualityHelp: "效果最好：自动选你账号里最强的模型，画面更精致、返工更少。账号不支持时会自动改用默认模型。",
-    speedLabel: "制作速度",
-    speedFast: "加速（新）",
-    speedSplit: "加速 + 分段接力（实验）",
-    speedClassic: "原来的方式",
     lockedTitle: "这张卡的时间已用完",
     lockedSub: "需要继续使用的话，请联系我们续时。",
     lockedGo: "换一张卡",
@@ -211,10 +207,6 @@ const I18N = {
     qualityBest: "Best result (recommended)",
     qualityDefault: "Account default (uses less quota)",
     qualityHelp: "Best result picks the strongest model on your account: more polished visuals and fewer redos. If your account can't use it, the default model is used instead.",
-    speedLabel: "Speed",
-    speedFast: "Faster (new)",
-    speedSplit: "Faster + relay (beta)",
-    speedClassic: "Original",
     lockedTitle: "This card has no time left",
     lockedSub: "To keep going, contact us to add more time.",
     lockedGo: "Use another card",
@@ -662,7 +654,7 @@ async function startJob() {
   form.append("auto_film", "1");
   form.append("agent", $("agent-runner").value || "");
   form.append("quality", $("agent-quality").value);
-  form.append("speed", $("agent-speed").value);
+  form.append("speed", "split");
   try {
     const seconds = card.account ? await videoSeconds(state.file) : 0;
     await claimFilm("", seconds);
@@ -703,11 +695,8 @@ function starting(job) {
   return Boolean(job.auto_film) && job.status === "review" && !agentOf(job).state && !job.error;
 }
 
-function estimateMinutes(seconds, speed) {
-  const s = Number(seconds) || 0;
-  if (speed === "split") return Math.round(Math.max(22, 20 + 0.5 * s));
-  if (speed === "fast") return Math.round(Math.max(25, 22 + 0.65 * s));
-  return Math.round(Math.max(45, 40 + 1.4 * s));
+function estimateMinutes(seconds) {
+  return Math.round(Math.max(35, 30 + 0.35 * (Number(seconds) || 0)));
 }
 
 function busy(job) {
@@ -773,7 +762,7 @@ function renderWork(job) {
     html = t("etaQueue")((agent.ahead || []).length || 1);
     pct = 4;
   } else if (agent.state === "running" && agent.started) {
-    const total = estimateMinutes(job.duration, job.agent_speed || "fast");
+    const total = estimateMinutes(job.duration);
     const elapsed = (Date.now() - Date.parse(agent.started)) / 60000;
     const left = Math.round(total - elapsed);
     pct = Math.min(96, Math.max(8, Math.round((elapsed / total) * 100)));
@@ -959,7 +948,7 @@ $("btn-film").addEventListener("click", async () => {
   if (!state.job) return;
   try {
     await claimFilm(state.job.id);
-    const speed = $("agent-speed").value;
+    const speed = "split";
     if (state.job.status === "failed") await act(`/api/jobs/${state.job.id}/regenerate`, { speed });
     else await act(`/api/jobs/${state.job.id}/film`, { agent: $("agent-runner").value || "", quality: $("agent-quality").value, speed });
   } catch (err) {
@@ -981,7 +970,7 @@ $("btn-rebrief").addEventListener("click", async () => {
   }
   state.notified = false;
   show("step-work");
-  await act(`/api/jobs/${state.job.id}/regenerate`, { brief: ($("ready-brief").value || "").trim(), speed: $("agent-speed").value });
+  await act(`/api/jobs/${state.job.id}/regenerate`, { brief: ($("ready-brief").value || "").trim(), speed: "split" });
 });
 
 document.querySelector(".lang-switch").addEventListener("click", (e) => {
@@ -1015,8 +1004,6 @@ async function restore() {
 
 $("agent-quality").value = localStorage.getItem("mpva.quality") === "default" ? "default" : "best";
 $("agent-quality").addEventListener("change", (e) => localStorage.setItem("mpva.quality", e.target.value));
-$("agent-speed").value = ["classic", "split"].includes(localStorage.getItem("mpva.speed")) ? localStorage.getItem("mpva.speed") : "fast";
-$("agent-speed").addEventListener("change", (e) => localStorage.setItem("mpva.speed", e.target.value));
 state.ui = localStorage.getItem("mpva.lang") === "en" ? "en" : "zh";
 applyUi();
 $("work-tip").textContent = t("tips")[0];
