@@ -703,6 +703,13 @@ function starting(job) {
   return Boolean(job.auto_film) && job.status === "review" && !agentOf(job).state && !job.error;
 }
 
+function estimateMinutes(seconds, speed) {
+  const s = Number(seconds) || 0;
+  if (speed === "split") return Math.round(Math.max(22, 20 + 0.5 * s));
+  if (speed === "fast") return Math.round(Math.max(25, 22 + 0.65 * s));
+  return Math.round(Math.max(45, 40 + 1.4 * s));
+}
+
 function busy(job) {
   return ["working", "uploaded"].includes(job.status) || ["queued", "running"].includes(agentOf(job).state) || starting(job);
 }
@@ -766,7 +773,7 @@ function renderWork(job) {
     html = t("etaQueue")((agent.ahead || []).length || 1);
     pct = 4;
   } else if (agent.state === "running" && agent.started) {
-    const total = Number(agent.estimate_min || 60);
+    const total = estimateMinutes(job.duration, job.agent_speed || "fast");
     const elapsed = (Date.now() - Date.parse(agent.started)) / 60000;
     const left = Math.round(total - elapsed);
     pct = Math.min(96, Math.max(8, Math.round((elapsed / total) * 100)));
