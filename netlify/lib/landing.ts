@@ -38,6 +38,9 @@ const STYLE = `
   h1 em { font-style: normal; background: linear-gradient(120deg, var(--coral), var(--sun)); -webkit-background-clip: text; background-clip: text; color: transparent; }
   .lead { font-size: 17px; line-height: 1.75; color: var(--muted); margin: 0 0 8px; max-width: 34em; }
   .en { font-size: 14px; color: #99a3b1; margin: 0 0 28px; letter-spacing: .01em; }
+  .fit { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 12px 18px; margin: 0 0 22px; max-width: 40em; }
+  .fit p { margin: 6px 0; font-size: 14px; line-height: 1.65; color: var(--muted); }
+  .fit b { color: var(--ink); margin-right: 8px; }
   .feats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 30px; }
   .feat { background: rgba(255,255,255,.8); border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; }
   .feat b { display: block; font-size: 15px; margin: 6px 0 4px; }
@@ -106,7 +109,7 @@ export const page = (title: string, body: string, status = 401, titleEn = "takea
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <link rel="icon" type="image/svg+xml" href="/logo.svg" />
 <title data-zh="${attr(title)}" data-title-en="${attr(titleEn)}">${title}</title>
-<meta name="description" content="拍完就去休息吧，剪辑交给 takeadayoff。拖进口播视频，自动抠像、字幕、动画和音效，原话一字不改。" />
+<meta name="description" content="对着镜头说出你的观点，然后 take a day off，剪辑交给 takeadayoff。专为口播视频打造：自动抠像、字幕、动画和音效，原话一字不改。" />
 <style>${STYLE}</style>
 </head>
 <body>
@@ -221,12 +224,25 @@ export function landingPage(cardReason = "", tab = "register"): Response {
 <main>
   <section>
     <div class="kicker">✨ ${tr("口播视频 · 自动剪辑", "Talking-head videos · edited for you")}</div>
-    <h1>${tr("拍完就去休息吧，<br/>剪辑交给", "Shoot it.<br/>Take a day off.<br/>We'll cut it with")} <em>takeadayoff</em>${tr("。", ".")}</h1>
+    <h1>${tr(
+      "对着镜头，说出你的观点。<br/>然后 take a day off，<br/>剪辑交给 <em>takeadayoff</em>。",
+      "Say your piece to the camera.<br/>Take a day off.<br/>We'll cut it with <em>takeadayoff</em>.",
+    )}</h1>
     <p class="lead">${tr(
-      "拖进一段口播视频，自动抠像、配字幕、做动画和音效。你说的每一句话，原样保留。去喝杯咖啡，回来就是能发的成片。",
-      "Drop in a talking-head video: cut-out, captions, animation and sound are done for you, and every word stays exactly as spoken. Grab a coffee and come back to a film you can post.",
+      "拿起手机，对着镜头把想说的讲完，传上来就可以去休息了。人物自动抠出来，字幕、动画和音效跟着你的话走，每一句原话都原样保留。回来就是能发的成片。",
+      "Pick up your phone, say what you want to say to the camera, upload it and go rest. You're cut out automatically, captions, animation and sound follow your words, and every word stays exactly as spoken. Come back to a film you can post.",
     )}</p>
-    <p class="en">${tr("Shoot it. Take a day off. We'll cut it.", "拍完就去休息吧，剪辑交给我们。")}</p>
+    <div class="fit">
+      <p><b>✅ ${tr("最适合", "Made for")}</b>${tr(
+        "一个人对着镜头讲观点、分享知识、聊经验的口播视频。",
+        "Talking-head videos: one person facing the camera, sharing a view, a tip or a story.",
+      )}</p>
+      <p><b>✖️ ${tr("不太适合", "Not a fit")}</b>${tr(
+        "画面里没人的旁白视频、没有说话的纯音乐或纯画面、需要从一堆片段里挑选拼接的素材。",
+        "Voice-over with no one on screen, videos with no speech, or piles of clips that need picking and stitching.",
+      )}</p>
+    </div>
+    <p class="en">${tr("Shoot it. Take a day off. We'll cut it.", "对着镜头说出你的观点，剩下的交给我们。")}</p>
     <div class="feats">
       <div class="feat"><span class="ic">🪄</span><b>${tr("不用绿幕", "No green screen")}</b><p>${tr("普通房间随手拍，人物自动抠出来，背景想换就换。", "Film in any room. You're cut out cleanly and the background is yours to change.")}</p></div>
       <div class="feat"><span class="ic">🎞️</span><b>${tr("画面跟着你的话走", "Visuals follow your words")}</b><p>${tr("讲到哪里，动画、字幕和音效就跟到哪里。", "Animation, captions and sound land right when you say it.")}</p></div>
@@ -236,7 +252,8 @@ export function landingPage(cardReason = "", tab = "register"): Response {
     <div class="steps">
       <span><b>1</b>${tr("注册领一次免费试用", "Sign up for a free trial")}</span><span class="arrow">→</span>
       <span><b>2</b>${tr("一键安装", "One-click install")}</span><span class="arrow">→</span>
-      <span><b>3</b>${tr("拖进视频，去休息", "Drop a video, go rest")}</span>
+      <span><b>3</b>${tr("对着镜头讲完，传上来", "Talk to the camera, upload")}</span><span class="arrow">→</span>
+      <span><b>4</b>${tr("去休息", "Take a day off")}</span>
     </div>
   </section>
 
