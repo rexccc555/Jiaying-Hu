@@ -225,12 +225,12 @@ export function landingPage(cardReason = "", tab = "register"): Response {
   <section>
     <div class="kicker">✨ ${tr("口播视频 · 自动剪辑", "Talking-head videos · edited for you")}</div>
     <h1>${tr(
-      "对着镜头，说出你的观点。<br/>然后 take a day off，<br/>剪辑交给 <em>takeadayoff</em>。",
-      "Say your piece to the camera.<br/>Take a day off.<br/>We'll cut it with <em>takeadayoff</em>.",
+      "对着镜头说出观点，<br/>然后 <em>take a day off</em>。",
+      "Say your piece to the camera.<br/>Then <em>take a day off</em>.",
     )}</h1>
     <p class="lead">${tr(
-      "拿起手机，对着镜头把想说的讲完，传上来就可以去休息了。人物自动抠出来，字幕、动画和音效跟着你的话走，每一句原话都原样保留。回来就是能发的成片。",
-      "Pick up your phone, say what you want to say to the camera, upload it and go rest. You're cut out automatically, captions, animation and sound follow your words, and every word stays exactly as spoken. Come back to a film you can post.",
+      "拿起手机，对着镜头把想说的讲完，传上来就去休息，剪辑交给 takeadayoff。人物自动抠出来，字幕、动画和音效跟着你的话走，每一句原话都原样保留。回来就是能发的成片。",
+      "Pick up your phone, say what you want to say to the camera, upload it and go rest: takeadayoff does the editing. You're cut out automatically, captions, animation and sound follow your words, and every word stays exactly as spoken. Come back to a film you can post.",
     )}</p>
     <div class="fit">
       <p><b>✅ ${tr("最适合", "Made for")}</b>${tr(
