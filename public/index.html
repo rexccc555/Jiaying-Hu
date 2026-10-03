@@ -101,6 +101,7 @@
       <h2 data-i18n="readyTitle">你的电脑已经装好了</h2>
       <p class="sub" data-i18n="readySub">点下面的按钮，把视频拖进去就能开始。</p>
       <a class="cta" href="/studio/" data-i18n="open">打开制作工具</a>
+      <p class="fine"><a href="#" id="reinstall" data-i18n="reinstall">需要重新安装或手动更新？</a></p>
     </section>
 
     <section class="card status" id="missing" hidden>
@@ -178,6 +179,7 @@
       checkingSub: "If your browser asks to allow access to local devices, click “Allow”.",
       readyTitle: "Your computer is ready",
       readySub: "Click below, drop in your video and start.",
+      reinstall: "Need to reinstall or update by hand?",
       open: "Open the studio",
       missingTitle: "Not installed yet. Three steps",
       missingSub: "Only once, about 5 minutes. After that it starts with Windows and this site opens it.",
@@ -212,7 +214,10 @@
     setLang(localStorage.getItem("mpva.lang") || (navigator.language.startsWith("zh") ? "zh" : "en"));
 
     function show(id) { ["checking", "ready", "missing"].forEach((s) => (document.getElementById(s).hidden = s !== id)); }
+    let manual = false;
+    document.getElementById("reinstall").addEventListener("click", (e) => { e.preventDefault(); manual = true; show("missing"); });
     async function detect() {
+      if (manual) return false;
       try {
         const res = await fetch(`${LOCAL}/api/remote/ping`, { cache: "no-store" });
         if (res.ok) { show("ready"); return true; }
