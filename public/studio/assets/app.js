@@ -73,6 +73,7 @@ const I18N = {
     qualityHelp: "效果最好：自动选你账号里最强的模型，画面更精致、返工更少。账号不支持时会自动改用默认模型。",
     speedLabel: "制作速度",
     speedFast: "加速（新）",
+    speedSplit: "加速 + 分段接力（实验）",
     speedClassic: "原来的方式",
     lockedTitle: "这张卡的时间已用完",
     lockedSub: "需要继续使用的话，请联系我们续时。",
@@ -114,6 +115,7 @@ const I18N = {
     ],
     etaLeft: (m, at) => `大约还要 <b>${m} 分钟</b> <em>· 预计 ${at} 左右完成</em>`,
     etaAlmost: "快好了，正在做最后的检查…",
+    etaStarting: "内容已听懂，正在交给 AI 开始制作…",
     etaQueue: (n) => `前面还有 ${n} 部视频在做，轮到你会自动开始，不用重复点。`,
     restTitle: "可以先去休息，晚点回来看",
     restBody: "做好后会自动出现在这里。期间可以正常用电脑做别的事，只要不关闭、不刷新这个窗口就行。",
@@ -209,6 +211,7 @@ const I18N = {
     qualityHelp: "Best result picks the strongest model on your account: more polished visuals and fewer redos. If your account can't use it, the default model is used instead.",
     speedLabel: "Speed",
     speedFast: "Faster (new)",
+    speedSplit: "Faster + relay (beta)",
     speedClassic: "Original",
     lockedTitle: "This card has no time left",
     lockedSub: "To keep going, contact us to add more time.",
@@ -250,6 +253,7 @@ const I18N = {
     ],
     etaLeft: (m, at) => `About <b>${m} min</b> left <em>· ready around ${at}</em>`,
     etaAlmost: "Almost there, doing the final checks…",
+    etaStarting: "Got it. Handing over to the AI to start making…",
     etaQueue: (n) => `${n} video(s) ahead. Yours starts automatically.`,
     restTitle: "Feel free to step away",
     restBody: "It will appear here when ready. Use your computer as normal, just keep this window open and do not refresh it.",
@@ -690,8 +694,13 @@ function agentOf(job) {
   return (job && job.agent) || {};
 }
 
+// Between staging and the agent starting, an auto-film job is briefly "review" with no agent yet.
+function starting(job) {
+  return Boolean(job.auto_film) && job.status === "review" && !agentOf(job).state && !job.error;
+}
+
 function busy(job) {
-  return ["working", "uploaded"].includes(job.status) || ["queued", "running"].includes(agentOf(job).state);
+  return ["working", "uploaded"].includes(job.status) || ["queued", "running"].includes(agentOf(job).state) || starting(job);
 }
 
 function filmUrl(job) {
@@ -724,7 +733,7 @@ function renderWork(job) {
 
   const queued = agent.state === "queued";
   $("work-title").textContent = queued ? t("queuedTitle") : t("working");
-  const stopped = job.status === "failed" || ["failed", "cancelled"].includes(agent.state) || (job.status === "review" && !agent.state);
+  const stopped = job.status === "failed" || ["failed", "cancelled"].includes(agent.state) || (job.status === "review" && !agent.state && !starting(job));
   let error = "";
   if (job.status === "failed") error = t("failed") + (job.error || "");
   else if (agent.state === "failed") error = t("failed") + (agent.error || "");
@@ -744,6 +753,9 @@ function renderWork(job) {
   if (["working", "uploaded"].includes(job.status)) {
     html = t("listening");
     pct = 6;
+  } else if (starting(job)) {
+    html = t("etaStarting");
+    pct = 8;
   } else if (queued) {
     html = t("etaQueue")((agent.ahead || []).length || 1);
     pct = 4;
@@ -989,7 +1001,7 @@ async function restore() {
 
 $("agent-quality").value = localStorage.getItem("mpva.quality") === "default" ? "default" : "best";
 $("agent-quality").addEventListener("change", (e) => localStorage.setItem("mpva.quality", e.target.value));
-$("agent-speed").value = localStorage.getItem("mpva.speed") === "classic" ? "classic" : "fast";
+$("agent-speed").value = ["classic", "split"].includes(localStorage.getItem("mpva.speed")) ? localStorage.getItem("mpva.speed") : "fast";
 $("agent-speed").addEventListener("change", (e) => localStorage.setItem("mpva.speed", e.target.value));
 state.ui = localStorage.getItem("mpva.lang") === "en" ? "en" : "zh";
 applyUi();
