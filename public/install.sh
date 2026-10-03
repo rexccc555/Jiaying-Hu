@@ -54,7 +54,8 @@ for i in $(seq 1 90); do running && break; sleep 1; done
 if running; then
   echo ""
   echo "Done! Opening the studio. It will start by itself from now on; you can close this window."
-  open "https://takeadayoff.co.nz/studio/"
+  # MPVA_QUIET: the program is updating itself in the background; the studio page reloads on its own.
+  [ -n "${MPVA_QUIET:-}" ] || open "https://takeadayoff.co.nz/studio/"
 else
   echo "Could not start. Please send us a screenshot of this window."
 fi

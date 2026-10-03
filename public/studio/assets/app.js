@@ -71,6 +71,8 @@ const I18N = {
     qualityBest: "效果最好（推荐）",
     qualityDefault: "账号默认（更省额度）",
     qualityHelp: "效果最好：自动选你账号里最强的模型，画面更精致、返工更少。账号不支持时会自动改用默认模型。",
+    updatingTitle: "正在更新制作程序",
+    updatingSub: "大约 1 分钟，好了会自动刷新，不用做任何操作。",
     lockedTitle: "这张卡的额度已用完",
     lockedSub: "卡里的额度按上传视频的时长扣，已经用完了。需要继续的话，请联系我们充值。",
     lockedGo: "换一张卡",
@@ -209,6 +211,8 @@ const I18N = {
     qualityBest: "Best result (recommended)",
     qualityDefault: "Account default (uses less quota)",
     qualityHelp: "Best result picks the strongest model on your account: more polished visuals and fewer redos. If your account can't use it, the default model is used instead.",
+    updatingTitle: "Updating the program",
+    updatingSub: "About a minute. The page refreshes by itself, nothing to do.",
     lockedTitle: "This card is used up",
     lockedSub: "Cards are charged by the length of the videos you upload, and this one has nothing left. Contact us to top it up.",
     lockedGo: "Use another card",
@@ -430,6 +434,22 @@ function renderTimeLeft() {
   if (badge.hidden) return;
   badge.textContent = card.admin ? t("timeAdmin") : t("timeLeft")(card.remainingSec || 0);
   badge.classList.toggle("low", !card.admin && (card.remainingSec || 0) < 120);
+}
+
+/** The program on this computer updates itself when the site has a newer build and nothing is being made. */
+async function checkUpdate() {
+  const data = await api("/api/update", { method: "POST" }).catch(() => null);
+  if (data && data.state === "updating") waitForUpdate(data.current);
+}
+
+async function waitForUpdate(from) {
+  $("updating").hidden = false;
+  for (let i = 0; i < 120; i++) {
+    await new Promise((r) => setTimeout(r, 5000));
+    const ping = await fetch(BASE + "/api/remote/ping", { cache: "no-store" }).then((r) => r.json()).catch(() => null);
+    if (ping && ping.build && ping.build !== from) break;
+  }
+  location.reload();
 }
 
 async function loadCard() {
@@ -1036,5 +1056,7 @@ setInterval(() => state.job && !$("step-work").hidden && renderWork(state.job), 
     loadAgents();
     loadEnv();
     restore();
+    checkUpdate();
+    setInterval(checkUpdate, 10 * 60000);
   })
   .catch(() => ON_SITE && location.replace("/"));

@@ -39,7 +39,8 @@ for ($i = 0; $i -lt 90 -and -not (Test-Running); $i++) { Start-Sleep 1 }
 if (Test-Running) {
   Write-Host ""
   Write-Host "Done! Opening the studio. It will start by itself from now on; you can close this window."
-  Start-Process "https://takeadayoff.co.nz/studio/"
+  # MPVA_QUIET: the program is updating itself in the background; the studio page reloads on its own.
+  if (-not $env:MPVA_QUIET) { Start-Process "https://takeadayoff.co.nz/studio/" }
 } else {
   Write-Host "Could not start. Please send a screenshot of this window."
 }
