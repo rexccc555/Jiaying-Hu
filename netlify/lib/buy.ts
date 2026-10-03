@@ -47,8 +47,8 @@ export function buyPage(user: User, locked: boolean, s: StripeSettings | null): 
         "Hope that film bought you some rest. Get a membership or top up credits to keep going.",
       )}</div></div>`
     : `<div class="gift"><i>🌴</i><div><b>${tr("会员与充值", "Membership & top up")}</b><br/>${tr(
-        "会员期间无限制使用；不想订阅也可以按视频时长买 credits。",
-        "Unlimited while you're a member, or pay as you go with credits by video length.",
+        "会员期间无限制使用；不想订阅也可以买 credits，按上传视频的时长扣。",
+        "Unlimited while you're a member, or pay as you go with credits, charged by the length of the videos you upload.",
       )}</div></div>`;
 
   const plan = PLAN_LABEL[user.plan || "month"];
@@ -83,7 +83,7 @@ export function buyPage(user: User, locked: boolean, s: StripeSettings | null): 
     ${user.subId ? `<p class="fine">${tr("你已在自动续费中。想取消或换卡，点下面的「管理订阅」。", "You're on auto-renew. To cancel or change card, use “Manage subscription” below.")}</p>` : ""}
     <p class="msg" id="pay-msg"></p>
 
-    <h3 style="margin-top:18px">${tr("按时长买 credits", "Buy credits by video length")}</h3>
+    <h3 style="margin-top:18px">${tr("按上传视频的时长买 credits", "Buy credits by uploaded video length")}</h3>
     <div class="credit-box">
       <div class="quick">${[500, 1000, 2000, 5000, 10000]
         .map((n) => `<button type="button" data-n="${n}"${n === 2000 ? ' class="on"' : ""}>${n.toLocaleString()}</button>`)
@@ -93,8 +93,8 @@ export function buyPage(user: User, locked: boolean, s: StripeSettings | null): 
         <div class="price"><b id="price"></b><s id="orig"></s> <span id="off"></span></div>
       </div>
       <p class="rule">${tr(
-        `按视频时长扣：<b>1 分钟视频 = 60 credits</b>（1 credit = ${sym}${p.creditPrice}）。生成一次扣一次，制作失败重试不扣。`,
-        `Charged by video length: <b>1 minute of video = 60 credits</b> (1 credit = ${sym}${p.creditPrice}). Each generation is charged once; retrying a failed one is free.`,
+        `按你<b>上传视频的时长</b>扣：<b>1 秒 = 1 credit，1 分钟 = 60 credits</b>（1 credit = ${sym}${p.creditPrice}）。比如上传一段 2 分钟的视频，就扣 120 credits。AI 制作花多久、页面开多久都不扣。每做一条扣一次，制作失败重试不扣。`,
+        `Charged by the <b>length of the video you upload</b>: <b>1 second = 1 credit, 1 minute = 60 credits</b> (1 credit = ${sym}${p.creditPrice}). A 2-minute video uses 120 credits. How long the AI takes, or how long the page is open, is never charged. Each film is charged once; retrying a failed one is free.`,
       )}<span id="mins"></span><br/>${tr(
         `${p.minCredits} 起充，充 ${p.discountFrom.toLocaleString()} 及以上打 ${off} 折。`,
         `Minimum ${p.minCredits}. ${offEn}% off from ${p.discountFrom.toLocaleString()} credits.`,

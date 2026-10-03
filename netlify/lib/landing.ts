@@ -7,7 +7,7 @@ export const ph = (zh: string, en: string) => `placeholder="${attr(zh)}" data-en
 
 const CARD_MESSAGES: Record<string, string> = {
   wrong: tr("卡号不对，再检查一下", "Card not recognised. Please check it."),
-  used_up: tr("这张卡的时间已用完，请联系我们续时", "This card has no time left. Contact us to add more."),
+  used_up: tr("这张卡的额度已用完（按上传视频的时长扣），请联系我们充值", "This card is used up (it's charged by the length of uploaded videos). Contact us to top it up."),
   disabled: tr("这张卡已停用，请联系我们", "This card has been switched off. Please contact us."),
   redeemed: tr("这张卡已经充值到账号里了，请用邮箱登录", "This card was added to an account. Please sign in with email."),
 };
@@ -169,7 +169,7 @@ const ERR = {
   login: ["邮箱或密码不对", "Wrong email or password"],
   disabled: ["这个账号已停用，请联系我们", "This account is switched off. Please contact us."],
   card: ["卡号不对", "Card not recognised"],
-  card_empty: ["这张卡没有剩余时间了", "This card has no time left"],
+  card_empty: ["这张卡的额度已经用完了", "This card is used up"],
   card_redeemed: ["这张卡已经被使用过了", "This card has already been used"],
 };
 const errText = (key, zh, en) => (ERR[key] ? L(ERR[key][0], ERR[key][1]) : L(zh, en));
@@ -240,6 +240,10 @@ export function landingPage(cardReason = "", tab = "register"): Response {
       <p><b>✖️ ${tr("不太适合", "Not a fit")}</b>${tr(
         "画面里没人的旁白视频、没有说话的纯音乐或纯画面、需要从一堆片段里挑选拼接的素材。",
         "Voice-over with no one on screen, videos with no speech, or piles of clips that need picking and stitching.",
+      )}</p>
+      <p><b>💳 ${tr("怎么计费", "How it's charged")}</b>${tr(
+        "按你上传视频的时长算：上传一段 2 分钟的视频，就用掉 2 分钟的额度（120 credits）。AI 制作花多久、页面开多久，都不算钱。",
+        "By the length of the video you upload: a 2-minute video uses 2 minutes of credit (120 credits). How long the AI takes, or how long the page is open, costs nothing.",
       )}</p>
     </div>
     <p class="en">${tr("Shoot it. Take a day off. We'll cut it.", "对着镜头说出你的观点，剩下的交给我们。")}</p>

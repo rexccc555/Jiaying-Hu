@@ -28,9 +28,11 @@ import {
   adminToken,
   beat,
   checkAdminPassword,
+  claimCardFilm,
   cookie,
   createCards,
   getCard,
+  hasLeft,
   isAdmin,
   listCards,
   readCookie,
@@ -226,7 +228,7 @@ export async function handleApi(request: Request, store: Store, send: SendMail, 
     if (!user) return fail("login", 401);
     const card = await getCard(store, String(body.code || ""));
     if (!card) return fail("card");
-    if (!usable(card)) return fail(card.redeemedBy ? "card_redeemed" : "card_empty");
+    if (!hasLeft(card)) return fail(card.redeemedBy ? "card_redeemed" : "card_empty");
     user.credits += Math.round(remainingSec(card));
     card.redeemedBy = user.email;
     card.disabled = true;
@@ -259,7 +261,13 @@ export async function handleApi(request: Request, store: Store, send: SendMail, 
 
   if (path === "/api/card/film" && method === "POST") {
     const who = await visitor(store, request);
-    if (who.admin || (who.card && !who.locked)) return json({ ok: true });
+    if (who.admin) return json({ ok: true });
+    if (who.card) {
+      if (who.locked) return json({ ok: false, reason: "credits", need: 0, remainingSec: 0 }, 403);
+      const result = claimCardFilm(who.card, String(body.job || "").slice(0, 64), Number(body.seconds) || 0, Boolean(body.redo), now);
+      await saveCard(store, who.card);
+      return json({ ...result, remainingSec: remainingSec(who.card) }, result.ok ? 200 : 403);
+    }
     if (!who.user) return json({ ok: false }, 401);
     const result = claimFilm(who.user, String(body.job || "").slice(0, 64), Number(body.seconds) || 0, Boolean(body.redo), now);
     await saveUser(store, who.user);

@@ -5,10 +5,19 @@ export interface Store {
   list(prefix: string): Promise<string[]>;
 }
 
+export interface CardFilm {
+  sec: number;
+  at: number;
+  pending?: boolean;
+}
+
 export interface Card {
   code: string;
+  /** Minutes of uploaded video this card pays for (not minutes of using the site). */
   minutes: number;
   usedSec: number;
+  films?: Record<string, CardFilm>;
+  lastFilmAt?: number | null;
   note: string;
   disabled: boolean;
   created: number;
@@ -20,8 +29,11 @@ export interface Card {
 export const CARD_COOKIE = "clip_card";
 export const ADMIN_COOKIE = "clip_admin";
 export const ADMIN_PREFIX = "ADMIN:";
-// A page heartbeat further apart than this means the studio was closed in between; that gap is not billed.
-const BEAT_GAP_MS = 150_000;
+// After a film, the studio stays open this long so the result can be watched and downloaded, even with nothing left.
+const FILM_VIEW_MS = 7 * 86_400_000;
+// A film whose length is not known yet needs at least this much left; the rest is settled once the length is known.
+const MIN_PENDING_SEC = 60;
+const MAX_FILMS_KEPT = 60;
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 // PBKDF2-SHA256 of the admin password, salt "mpva-admin-v1", 200k rounds.
 const ADMIN_HASH = "3dbe2669dfec8429bbb729aefd7d3be5aa0aaf865fc049905be407c893f7ac92";
@@ -43,8 +55,14 @@ export function remainingSec(card: Card): number {
   return Math.max(0, Math.round(card.minutes * 60 - card.usedSec));
 }
 
-export function usable(card: Card | null): card is Card {
+/** Has video length left to spend (what redeeming into an account transfers). */
+export function hasLeft(card: Card | null): card is Card {
   return Boolean(card && !card.disabled && remainingSec(card) > 0);
+}
+
+/** May open the studio: something left, or a recent film still to watch and download. */
+export function usable(card: Card | null, now = Date.now()): card is Card {
+  return hasLeft(card) || Boolean(card && !card.disabled && card.lastFilmAt && now - card.lastFilmAt < FILM_VIEW_MS);
 }
 
 export function status(card: Card): string {
@@ -54,13 +72,57 @@ export function status(card: Card): string {
   return card.firstUsed ? "active" : "new";
 }
 
+/** Only records that the studio is open; nothing is charged for time spent on the site. */
 export function beat(card: Card, now: number): Card {
-  if (card.lastBeat && now - card.lastBeat <= BEAT_GAP_MS) {
-    card.usedSec = Math.min(card.minutes * 60, card.usedSec + (now - card.lastBeat) / 1000);
-  }
   card.lastBeat = now;
   card.firstUsed = card.firstUsed || now;
   return card;
+}
+
+export type CardFilmResult = { ok: true; charged: number } | { ok: false; reason: "disabled" | "credits"; need: number };
+
+/**
+ * May this card start (or re-make) a film? It is charged the length of the uploaded video, once per film.
+ * `job` is empty for the check before upload; `redo` re-makes a finished film and is charged again.
+ */
+export function claimCardFilm(card: Card, job: string, seconds: number, redo: boolean, now: number): CardFilmResult {
+  if (card.disabled) return { ok: false, reason: "disabled", need: 0 };
+  card.films ??= {};
+  const films = card.films;
+  const secs = Number.isFinite(seconds) && seconds > 0 ? Math.ceil(Math.min(seconds, 4 * 3600)) : 0;
+  const left = remainingSec(card);
+  const record = (sec: number, pending = false) => {
+    if (!job) return;
+    films[job] = { sec, at: now, ...(pending ? { pending: true } : {}) };
+    card.lastFilmAt = now;
+    card.firstUsed = card.firstUsed || now;
+    const ids = Object.keys(films);
+    if (ids.length > MAX_FILMS_KEPT) {
+      ids.sort((a, b) => films[a].at - films[b].at).slice(0, ids.length - MAX_FILMS_KEPT).forEach((id) => delete films[id]);
+    }
+  };
+
+  const known = job ? films[job] : undefined;
+  if (known && !redo) {
+    if (known.pending && secs > 0) {
+      const cost = Math.min(left, secs);
+      card.usedSec += cost;
+      films[job] = { sec: cost, at: known.at };
+    }
+    return { ok: true, charged: 0 };
+  }
+
+  if (!secs) {
+    if (left < MIN_PENDING_SEC) return { ok: false, reason: "credits", need: MIN_PENDING_SEC };
+    record(0, true);
+    return { ok: true, charged: 0 };
+  }
+  if (left < secs) return { ok: false, reason: "credits", need: secs };
+  if (job) {
+    card.usedSec += secs;
+    record(secs);
+  }
+  return { ok: true, charged: job ? secs : 0 };
 }
 
 export async function getCard(store: Store, code: string): Promise<Card | null> {

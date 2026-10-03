@@ -71,21 +71,23 @@ const I18N = {
     qualityBest: "效果最好（推荐）",
     qualityDefault: "账号默认（更省额度）",
     qualityHelp: "效果最好：自动选你账号里最强的模型，画面更精致、返工更少。账号不支持时会自动改用默认模型。",
-    lockedTitle: "这张卡的时间已用完",
-    lockedSub: "需要继续使用的话，请联系我们续时。",
+    lockedTitle: "这张卡的额度已用完",
+    lockedSub: "卡里的额度按上传视频的时长扣，已经用完了。需要继续的话，请联系我们充值。",
     lockedGo: "换一张卡",
-    timeLeft: (m) => `剩余 ${m} 分钟`,
+    timeLeft: (s) => `还可做 ${dur(s)} 视频`,
+    cardShortTitle: "卡里额度不够这条视频",
+    cardShort: (need, have) => `额度按上传视频的时长扣：这条视频 ${dur(need)}，就需要 ${dur(need)} 的额度，你的卡里还剩 ${dur(have)}。\n\n换一段短一点的视频，或联系我们充值。`,
     timeAdmin: "管理员",
     trialFree: "🎁 免费试用 1 次",
     trialActive: "免费试用中",
     trialTitle: "免费试用已经用完啦",
-    trialSub: "希望那条成片让你多休息了一会儿。开通会员（NZ$9.9/月起，无限制使用）或按时长充值 credits 就能继续。",
+    trialSub: "希望那条成片让你多休息了一会儿。开通会员（NZ$9.9/月起，无限制使用）或充值 credits（按上传视频的时长扣）就能继续。",
     trialGo: "开通会员 / 充值",
     topup: "充值 / 会员",
     member: (d) => `👑 会员 · 至 ${d}`,
     creditsLeft: (n) => `${n.toLocaleString()} credits`,
     creditsTitle: "credits 不够了",
-    creditsShort: (need, have) => `这条视频需要 ${need.toLocaleString()} credits（1 分钟 = 60），你还剩 ${have.toLocaleString()}。\n\n去开通会员（无限制使用）或充值 credits 吗？`,
+    creditsShort: (need, have) => `credits 按上传视频的时长扣（1 秒 = 1 credit，1 分钟 = 60）：这条视频 ${dur(need)}，需要 ${need.toLocaleString()} credits，你还剩 ${have.toLocaleString()}。\n\n去开通会员（无限制使用）或充值 credits 吗？`,
     agentTitle: "AI 助手（必须装一个才能制作）",
     agentSub: "任选一个安装并登录即可，装好后会显示「可以用 ✓」。",
     agentNone: "还没有可用的 AI 助手，请先在下面装一个，否则无法开始制作。",
@@ -207,21 +209,23 @@ const I18N = {
     qualityBest: "Best result (recommended)",
     qualityDefault: "Account default (uses less quota)",
     qualityHelp: "Best result picks the strongest model on your account: more polished visuals and fewer redos. If your account can't use it, the default model is used instead.",
-    lockedTitle: "This card has no time left",
-    lockedSub: "To keep going, contact us to add more time.",
+    lockedTitle: "This card is used up",
+    lockedSub: "Cards are charged by the length of the videos you upload, and this one has nothing left. Contact us to top it up.",
     lockedGo: "Use another card",
-    timeLeft: (m) => `${m} min left`,
+    timeLeft: (s) => `${dur(s)} of video left`,
+    cardShortTitle: "Not enough left on this card",
+    cardShort: (need, have) => `Cards are charged by the length of the uploaded video: this video is ${dur(need)}, so it needs ${dur(need)}, and your card has ${dur(have)} left.\n\nTry a shorter video, or contact us to top up.`,
     timeAdmin: "Admin",
     trialFree: "🎁 1 free trial",
     trialActive: "Free trial",
     trialTitle: "Your free trial is used up",
-    trialSub: "Hope that film bought you some rest. Get a membership (from NZ$9.9/month, unlimited) or top up credits to keep going.",
+    trialSub: "Hope that film bought you some rest. Get a membership (from NZ$9.9/month, unlimited) or top up credits (charged by uploaded video length) to keep going.",
     trialGo: "Membership / top up",
     topup: "Top up / Membership",
     member: (d) => `👑 Member · until ${d}`,
     creditsLeft: (n) => `${n.toLocaleString()} credits`,
     creditsTitle: "Not enough credits",
-    creditsShort: (need, have) => `This video needs ${need.toLocaleString()} credits (60 per minute) and you have ${have.toLocaleString()}.\n\nGet a membership (unlimited) or top up credits?`,
+    creditsShort: (need, have) => `Credits are charged by the length of the uploaded video (1 second = 1 credit, 1 minute = 60): this video is ${dur(need)}, so it needs ${need.toLocaleString()} credits, and you have ${have.toLocaleString()}.\n\nGet a membership (unlimited) or top up credits?`,
     agentTitle: "AI assistant (you need one to make videos)",
     agentSub: "Install and sign in to any one of them. It shows “Ready ✓” when done.",
     agentNone: "No AI assistant is ready yet. Install one below, otherwise videos can’t be made.",
@@ -280,6 +284,14 @@ const STORE = "mpva.job";
 
 function t(key) {
   return (I18N[state.ui] || I18N.zh)[key];
+}
+
+function dur(sec) {
+  const s = Math.max(0, Math.round(Number(sec) || 0));
+  const m = Math.floor(s / 60);
+  const r = s % 60;
+  if (state.ui === "zh") return m && r ? `${m} 分 ${r} 秒` : m ? `${m} 分钟` : `${r} 秒`;
+  return m && r ? `${m} min ${r} s` : m ? `${m} min` : `${r} s`;
 }
 
 function escapeHtml(value) {
@@ -362,10 +374,10 @@ function videoSeconds(file) {
 
 /**
  * Accounts: membership is unlimited, otherwise the one free trial, then credits by the source length.
- * Ask the site before starting or re-making a film (cards and admin always pass).
+ * Cards: charged the source length. Ask the site before starting or re-making a film (admin always passes).
  */
 async function claimFilm(jobId, seconds = 0, redo = false) {
-  if (!ON_SITE || !card.account) return;
+  if (!ON_SITE || card.admin || !card.code) return;
   const res = await fetch("/api/card/film", {
     method: "POST",
     cache: "no-store",
@@ -373,11 +385,16 @@ async function claimFilm(jobId, seconds = 0, redo = false) {
     body: JSON.stringify({ job: jobId || "", seconds, redo }),
   });
   const data = await res.json().catch(() => ({}));
-  ["trial", "credits", "plan", "planUntil"].forEach((k) => k in data && (card[k] = data[k]));
+  ["trial", "credits", "plan", "planUntil", "remainingSec"].forEach((k) => k in data && (card[k] = data[k]));
   renderTimeLeft();
   if (res.ok) {
-    if (jobId && !seconds && data.via === "credits") { unmeasured.add(jobId); saveUnmeasured(); }
+    if (jobId && !seconds && (data.via === "credits" || !card.account)) { unmeasured.add(jobId); saveUnmeasured(); }
     return;
+  }
+  if (!card.account) {
+    if (data.reason === "credits" && data.need) window.alert(t("cardShort")(data.need, card.remainingSec || 0));
+    if (data.reason !== "credits" || !(card.remainingSec > 0)) lockCard();
+    throw new Error(t("cardShortTitle"));
   }
   if (data.reason === "credits") {
     if (window.confirm(t("creditsShort")(data.need, card.credits || 0))) location.href = "/buy";
@@ -411,9 +428,8 @@ function renderTimeLeft() {
   }
   badge.hidden = !card.admin && card.remainingSec === null;
   if (badge.hidden) return;
-  const minutes = Math.max(0, Math.ceil((card.remainingSec || 0) / 60));
-  badge.textContent = card.admin ? t("timeAdmin") : t("timeLeft")(minutes);
-  badge.classList.toggle("low", !card.admin && minutes <= 5);
+  badge.textContent = card.admin ? t("timeAdmin") : t("timeLeft")(card.remainingSec || 0);
+  badge.classList.toggle("low", !card.admin && (card.remainingSec || 0) < 120);
 }
 
 async function loadCard() {
