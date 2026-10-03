@@ -124,6 +124,8 @@ const I18N = {
     stop: "停止制作",
     stopConfirm: "确定要停止吗？已经做的部分不会保留。",
     stopped: "已停止。需要的话可以重新制作。",
+    stoppedTitle: "这次制作已停止",
+    backHome: "上传新视频",
     failed: "这次没做成：",
     notReady: "还差一步准备，回首页完成后再来点「开始制作」。",
     done: "做好了！",
@@ -262,6 +264,8 @@ const I18N = {
     stop: "Stop",
     stopConfirm: "Stop now? Progress will be lost.",
     stopped: "Stopped. You can start again any time.",
+    stoppedTitle: "This video was stopped",
+    backHome: "Upload a new video",
     failed: "It did not finish: ",
     notReady: "Setup is not finished. Complete it on the home page, then press Start.",
     done: "It's ready!",
@@ -732,8 +736,10 @@ function renderWork(job) {
     .join("");
 
   const queued = agent.state === "queued";
-  $("work-title").textContent = queued ? t("queuedTitle") : t("working");
   const stopped = job.status === "failed" || ["failed", "cancelled"].includes(agent.state) || (job.status === "review" && !agent.state && !starting(job));
+  $("work-title").textContent = stopped ? t("stoppedTitle") : queued ? t("queuedTitle") : t("working");
+  $("work-tip").hidden = stopped;
+  $("btn-home").hidden = !stopped;
   let error = "";
   if (job.status === "failed") error = t("failed") + (job.error || "");
   else if (agent.state === "failed") error = t("failed") + (agent.error || "");
@@ -958,6 +964,7 @@ $("btn-stop").addEventListener("click", async () => {
   await act(`/api/jobs/${state.job.id}/film/cancel`);
 });
 $("btn-new").addEventListener("click", resetHome);
+$("btn-home").addEventListener("click", resetHome);
 $("btn-rebrief").addEventListener("click", async () => {
   if (!state.job || !window.confirm(t("redoConfirm"))) return;
   try {
