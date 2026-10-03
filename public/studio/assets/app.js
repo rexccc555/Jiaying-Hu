@@ -71,6 +71,9 @@ const I18N = {
     qualityBest: "效果最好（推荐）",
     qualityDefault: "账号默认（更省额度）",
     qualityHelp: "效果最好：自动选你账号里最强的模型，画面更精致、返工更少。账号不支持时会自动改用默认模型。",
+    speedLabel: "制作速度",
+    speedFast: "加速（新）",
+    speedClassic: "原来的方式",
     lockedTitle: "这张卡的时间已用完",
     lockedSub: "需要继续使用的话，请联系我们续时。",
     lockedGo: "换一张卡",
@@ -204,6 +207,9 @@ const I18N = {
     qualityBest: "Best result (recommended)",
     qualityDefault: "Account default (uses less quota)",
     qualityHelp: "Best result picks the strongest model on your account: more polished visuals and fewer redos. If your account can't use it, the default model is used instead.",
+    speedLabel: "Speed",
+    speedFast: "Faster (new)",
+    speedClassic: "Original",
     lockedTitle: "This card has no time left",
     lockedSub: "To keep going, contact us to add more time.",
     lockedGo: "Use another card",
@@ -648,6 +654,7 @@ async function startJob() {
   form.append("auto_film", "1");
   form.append("agent", $("agent-runner").value || "");
   form.append("quality", $("agent-quality").value);
+  form.append("speed", $("agent-speed").value);
   try {
     const seconds = card.account ? await videoSeconds(state.file) : 0;
     await claimFilm("", seconds);
@@ -927,8 +934,9 @@ $("btn-film").addEventListener("click", async () => {
   if (!state.job) return;
   try {
     await claimFilm(state.job.id);
-    if (state.job.status === "failed") await act(`/api/jobs/${state.job.id}/regenerate`, {});
-    else await act(`/api/jobs/${state.job.id}/film`, { agent: $("agent-runner").value || "", quality: $("agent-quality").value });
+    const speed = $("agent-speed").value;
+    if (state.job.status === "failed") await act(`/api/jobs/${state.job.id}/regenerate`, { speed });
+    else await act(`/api/jobs/${state.job.id}/film`, { agent: $("agent-runner").value || "", quality: $("agent-quality").value, speed });
   } catch (err) {
     $("work-error").textContent = err.message;
   }
@@ -947,7 +955,7 @@ $("btn-rebrief").addEventListener("click", async () => {
   }
   state.notified = false;
   show("step-work");
-  await act(`/api/jobs/${state.job.id}/regenerate`, { brief: ($("ready-brief").value || "").trim() });
+  await act(`/api/jobs/${state.job.id}/regenerate`, { brief: ($("ready-brief").value || "").trim(), speed: $("agent-speed").value });
 });
 
 document.querySelector(".lang-switch").addEventListener("click", (e) => {
@@ -981,6 +989,8 @@ async function restore() {
 
 $("agent-quality").value = localStorage.getItem("mpva.quality") === "default" ? "default" : "best";
 $("agent-quality").addEventListener("change", (e) => localStorage.setItem("mpva.quality", e.target.value));
+$("agent-speed").value = localStorage.getItem("mpva.speed") === "classic" ? "classic" : "fast";
+$("agent-speed").addEventListener("change", (e) => localStorage.setItem("mpva.speed", e.target.value));
 state.ui = localStorage.getItem("mpva.lang") === "en" ? "en" : "zh";
 applyUi();
 $("work-tip").textContent = t("tips")[0];
