@@ -138,6 +138,20 @@ const I18N = {
     titleWorking: (p) => `制作中 ${p}% · takeadayoff`,
     titleDone: "✓ 做好了 · takeadayoff",
     notify: "你的视频做好了，回来看看吧！",
+    pausedHead: "制作暂停了",
+    pausedTitle: "AI 账号额度用完了，先暂停一下",
+    pausedText: (seg, total, reset) =>
+      `${total > 1 && seg > 1 ? `已经做完 ${seg - 1}/${total} 段，` : ""}做好的部分都保留着，继续时从${total > 1 ? `第 ${seg} 段` : "停下的地方"}接着做，不会重复扣 takeadayoff 的 credits。` +
+      (reset ? `你的 AI 账号额度会在 ${reset} 重置。` : "") +
+      "给 AI 账号充值（或等额度重置）后点「继续制作」。",
+    pausedTopup: "去充值",
+    pausedResume: "我已充值，继续制作",
+    pausedOther: "或者换一个 AI 助手接着做：",
+    pausedSwitch: "换这个继续",
+    pausedNotify: "AI 账号额度用完了，制作已暂停，回来选一下怎么继续",
+    titlePaused: "⏸ 需要你选一下 · takeadayoff",
+    switchedNote: (from, seg, total) =>
+      `提示：制作中途「${from}」的额度用完了，${total > 1 ? `从第 ${seg} 段起` : ""}自动换成默认模型做完。效果不满意的话，可以给 AI 账号充值后，展开下面的「想换个感觉重做？」重做。`,
   },
   en: {
     heroTitle: "Shoot it. Take a day off. We'll cut it.",
@@ -278,6 +292,20 @@ const I18N = {
     titleWorking: (p) => `Making ${p}% · takeadayoff`,
     titleDone: "✓ Ready · takeadayoff",
     notify: "Your video is ready!",
+    pausedHead: "Paused",
+    pausedTitle: "Your AI account is out of usage, so we paused",
+    pausedText: (seg, total, reset) =>
+      `${total > 1 && seg > 1 ? `${seg - 1} of ${total} parts are done. ` : ""}Everything made so far is kept; continuing picks up ${total > 1 ? `at part ${seg}` : "where it stopped"} and costs no extra takeadayoff credits. ` +
+      (reset ? `Your AI account's usage resets ${reset}. ` : "") +
+      "Top up your AI account (or wait for the reset), then press Continue.",
+    pausedTopup: "Top up",
+    pausedResume: "I've topped up, continue",
+    pausedOther: "Or continue with another AI assistant:",
+    pausedSwitch: "Continue with this",
+    pausedNotify: "Your AI account ran out of usage and the video is paused. Come back to choose how to continue.",
+    titlePaused: "⏸ Waiting for you · takeadayoff",
+    switchedNote: (from, seg, total) =>
+      `Note: "${from}" ran out of usage midway, so ${total > 1 ? `from part ${seg} on ` : ""}it was finished with the default model. Not happy with it? Top up your AI account and open "Want a different feel?" below to redo it.`,
   },
 };
 
@@ -768,8 +796,10 @@ function renderWork(job) {
     .join("");
 
   const queued = agent.state === "queued";
-  const stopped = job.status === "failed" || ["failed", "cancelled"].includes(agent.state) || (job.status === "review" && !agent.state && !starting(job));
-  $("work-title").textContent = stopped ? t("stoppedTitle") : queued ? t("queuedTitle") : t("working");
+  const paused = agent.state === "paused";
+  const stopped = paused || job.status === "failed" || ["failed", "cancelled"].includes(agent.state) || (job.status === "review" && !agent.state && !starting(job));
+  renderPaused(job, paused);
+  $("work-title").textContent = paused ? t("pausedHead") : stopped ? t("stoppedTitle") : queued ? t("queuedTitle") : t("working");
   $("work-tip").hidden = stopped;
   $("btn-home").hidden = !stopped;
   let error = "";
@@ -780,9 +810,9 @@ function renderWork(job) {
   $("work-error").textContent = error;
 
   const film = $("btn-film");
-  film.hidden = !stopped;
+  film.hidden = !stopped || paused;
   film.textContent = agent.state || job.status === "failed" ? t("retry") : t("startFilm");
-  $("btn-stop").hidden = !busy(job) || ["working", "uploaded"].includes(job.status);
+  $("btn-stop").hidden = !paused && (!busy(job) || ["working", "uploaded"].includes(job.status));
   document.querySelector(".mascot").style.opacity = stopped ? 0.45 : 1;
   document.querySelector(".rest").hidden = stopped;
 
@@ -811,7 +841,51 @@ function renderWork(job) {
   $("eta").hidden = stopped;
   $("eta-fill").style.width = `${pct}%`;
   $("eta-text").innerHTML = html;
-  document.title = stopped ? "takeadayoff" : t("titleWorking")(pct);
+  document.title = paused ? t("titlePaused") : stopped ? "takeadayoff" : t("titleWorking")(pct);
+}
+
+const TOPUP = {
+  cursor: "https://cursor.com/dashboard?tab=usage",
+  codex: "https://chatgpt.com/codex/settings/usage",
+  claude: "https://claude.ai/settings/usage",
+};
+
+function renderPaused(job, paused) {
+  $("paused").hidden = !paused;
+  if (!paused) {
+    state.pauseNotified = false;
+    return;
+  }
+  const agent = agentOf(job);
+  const total = Number(agent.segments) || 1;
+  const seg = Math.min(Number(agent.segment) || 1, total);
+  $("paused-text").textContent = t("pausedText")(seg, total, agent.reset || "");
+  const topup = $("paused-topup");
+  topup.href = TOPUP[agent.runner] || "#";
+  topup.hidden = !TOPUP[agent.runner];
+  const others = state.agents.filter((a) => a.id !== agent.runner && a.available && a.signed_in !== false);
+  $("paused-other").hidden = others.length === 0;
+  const select = $("paused-runner");
+  const options = others.map((a) => `<option value="${escapeHtml(a.id)}">${escapeHtml(a.label)}</option>`).join("");
+  if (select.dataset.options !== options) {
+    select.innerHTML = options;
+    select.dataset.options = options;
+  }
+  if (!state.pauseNotified) {
+    state.pauseNotified = true;
+    if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+      try { new Notification("takeadayoff", { body: t("pausedNotify") }); } catch {}
+    }
+  }
+}
+
+async function resumeFilm(agent) {
+  if (!state.job) return;
+  try {
+    await act(`/api/jobs/${state.job.id}/film/resume`, agent ? { agent } : {});
+  } catch (err) {
+    $("work-error").textContent = err.message;
+  }
 }
 
 function renderDone(job) {
@@ -825,6 +899,9 @@ function renderDone(job) {
   const link = $("btn-download");
   link.href = url;
   link.setAttribute("download", `${(job.title || "video").replace(/[\\/:*?"<>|]/g, "")}.mp4`);
+  const switched = agentOf(job).switched;
+  $("done-switched").hidden = !switched;
+  if (switched) $("done-switched").textContent = t("switchedNote")(switched.from || "", switched.segment || 1, Number(agentOf(job).segments) || 1);
   document.title = t("titleDone");
   if (!state.notified) {
     state.notified = true;
@@ -991,6 +1068,8 @@ $("btn-film").addEventListener("click", async () => {
     $("work-error").textContent = err.message;
   }
 });
+$("btn-resume").addEventListener("click", () => resumeFilm(""));
+$("btn-resume-other").addEventListener("click", () => resumeFilm($("paused-runner").value));
 $("btn-stop").addEventListener("click", async () => {
   if (!state.job || !window.confirm(t("stopConfirm"))) return;
   await act(`/api/jobs/${state.job.id}/film/cancel`);

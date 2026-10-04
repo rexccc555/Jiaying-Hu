@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>takeadayoff</title>
   <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
-  <link rel="stylesheet" href="assets/style.css?v=43" />
+  <link rel="stylesheet" href="assets/style.css?v=44" />
 </head>
 <body>
   <div class="bg-blob one"></div>
@@ -157,6 +157,20 @@
           </div>
         </div>
 
+        <div class="paused" id="paused" hidden>
+          <strong data-i18n="pausedTitle">AI 账号额度用完了，先暂停一下</strong>
+          <p id="paused-text"></p>
+          <div class="paused-actions">
+            <a class="pill" id="paused-topup" target="_blank" rel="noopener" data-i18n="pausedTopup">去充值</a>
+            <button type="button" class="cta small" id="btn-resume" data-i18n="pausedResume">我已充值，继续制作</button>
+          </div>
+          <div class="paused-other" id="paused-other" hidden>
+            <span data-i18n="pausedOther">或者换一个 AI 助手接着做：</span>
+            <select id="paused-runner"></select>
+            <button type="button" class="pill" id="btn-resume-other" data-i18n="pausedSwitch">换这个继续</button>
+          </div>
+        </div>
+
         <p class="fine error" id="work-error"></p>
         <div class="work-actions">
           <button type="button" class="cta small" id="btn-film" hidden data-i18n="startFilm">开始制作</button>
@@ -176,6 +190,7 @@
             <p class="hero-sub" id="done-sub" data-i18n="doneSub">先完整看一遍，满意再下载发布。</p>
           </div>
         </div>
+        <p class="fine switched" id="done-switched" hidden></p>
         <div class="player" id="player"></div>
         <div class="done-actions">
           <a class="cta" id="btn-download" download data-i18n="download">下载视频</a>
@@ -221,6 +236,6 @@
   <footer>
     Private beta · Complimentary access
   </footer>
-  <script src="assets/app.js?v=43"></script>
+  <script src="assets/app.js?v=44"></script>
 </body>
 </html>
