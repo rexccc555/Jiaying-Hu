@@ -36,7 +36,7 @@ const MIN_PENDING_SEC = 60;
 const MAX_FILMS_KEPT = 60;
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 // PBKDF2-SHA256 of the admin password, salt "mpva-admin-v1", 200k rounds.
-const ADMIN_HASH = "3dbe2669dfec8429bbb729aefd7d3be5aa0aaf865fc049905be407c893f7ac92";
+const ADMIN_HASH = "99871b11087d55245319b31373cbca9115792586e744e847f7c4e7c1d94a855d";
 
 const hex = (buf: ArrayBuffer) => Array.from(new Uint8Array(buf), (b) => b.toString(16).padStart(2, "0")).join("");
 
